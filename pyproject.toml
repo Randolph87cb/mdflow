@@ -7,6 +7,10 @@ name = "mdflow"
 version = "0.1.0"
 description = "Markdown-native local workflow runner for LLM and CLI tasks"
 requires-python = ">=3.11"
+dependencies = ["PyYAML>=6.0"]
+
+[project.scripts]
+mdflow = "mdflow.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
