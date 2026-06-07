@@ -24,6 +24,8 @@ class RunFailure(MdflowError):
         error_type: str,
         returncode: int | None = None,
         timeout_sec: int | None = None,
+        stdout: str = "",
+        stderr: str = "",
     ) -> None:
         super().__init__(message)
         self.node_id = node_id
@@ -31,3 +33,5 @@ class RunFailure(MdflowError):
         self.error_type = error_type
         self.returncode = returncode
         self.timeout_sec = timeout_sec
+        self.stdout = stdout
+        self.stderr = stderr

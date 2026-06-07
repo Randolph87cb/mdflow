@@ -1,13 +1,8 @@
 # 项目目录规范
 
-本文档用于固定 `mdflow` 一阶段的项目结构，作为开工前的统一规范。目标是把以下几层边界先定清楚：
+本文档固定 `mdflow` 一阶段的项目结构。
 
-- `workflows/`：工作流定义
-- `src/`：Python 核心控制层
-- `tests/`：测试代码与测试数据
-- `runs/`：每次运行的现场落盘
-
-## 一阶段推荐结构
+## 推荐结构
 
 ```text
 mdflow-project/
@@ -28,9 +23,18 @@ mdflow-project/
   src/
     mdflow/
       __init__.py
+      cli.py
+      config.py
+      parser.py
+      resolver.py
+      runner.py
+      trace.py
+      validator.py
+      executors/
+        llm.py
+        script.py
 
   tests/
-    README.md
     unit/
     integration/
     fixtures/
@@ -38,18 +42,13 @@ mdflow-project/
   workflows/
     problem_gen/
       workflow.md
-
       nodes/
         01_generate_statement.md
-        02_generate_solution.md
-        03_generate_cpp.md
-        04_run_cpp.md
-        05_package.md
-
+        02_generate_std.md
+        03_generate_gen.md
+        04_package_data.md
       scripts/
-        run_cpp.py
-        package.py
-
+        package_data.py
       inputs/
         default.md
 
@@ -57,163 +56,57 @@ mdflow-project/
     .gitkeep
 ```
 
-## 顶层目录职责
-
-### `README.md`
-
-仓库入口说明。用于解释项目定位、阶段目标和关键文档入口。
-
-### `.gitignore`
-
-用于排除本地虚拟环境、Python 缓存和运行产物。  
-一阶段约定 `runs/` 下的真实运行目录默认不提交，只保留空目录占位。
-
-### `pyproject.toml`
-
-Python 项目入口配置。  
-一阶段先承担这些职责：
-
-- 固定项目是 Python 实现
-- 固定源码目录是 `src/`
-- 为后续 CLI、测试、依赖管理留标准入口
+## 顶层职责
 
 ### `mdflow.yaml`
 
-项目级配置文件。  
-一阶段放项目级默认配置，例如：
+项目级默认配置：
 
 - 项目名
 - `workflows` 根目录
 - `runs` 根目录
-- 默认工作流
+- 默认 workflow
 - 默认模型配置
 - provider 注册表
 
-详细字段规则见 [project-config-format.md](project-config-format.md)。
-
-## 核心源码层
-
 ### `src/`
 
-Python 源码根目录。  
-这个目录负责承载真正的 engine，也就是“怎么跑”的实现。
+Python 核心控制层，负责：
 
-### `src/mdflow/`
-
-主包目录。  
-一阶段后续代码会放在这里，职责包括：
-
-- 解析 `workflow.md` 和 `nodes/*.md`
-- 校验工作流定义
-- 创建运行目录
-- 顺序执行节点
-- 调用 LLM executor 和 Script executor
-- 维护 `state.json`
-- 记录 `trace.json`
-- 提供 `validate`、`run`、`show`、`cat` 等 CLI 命令
-
-当前只保留包骨架，不提前写执行逻辑。
-
-## 测试层
+- 解析 Markdown 工作流
+- 校验协议
+- 执行节点
+- 落盘 `meta.json`、`state.json`、`trace.json`
+- 暴露 `validate`、`run`、`show`、`cat`
 
 ### `tests/`
 
-测试根目录。  
-这是这次补充后正式纳入一阶段结构的组成部分，用于保证 parser、validator、runner 和 executor 行为可验证。
+测试目录：
 
-### `tests/unit/`
-
-单元测试目录。  
-主要覆盖：
-
-- 配置解析
-- Markdown/front matter 解析
-- 节点校验
-- 状态与 trace 更新逻辑
-
-### `tests/integration/`
-
-集成测试目录。  
-主要覆盖：
-
-- 用示例工作流跑完整链路
-- Script 节点调用
-- run 目录生成
-- 失败即停止的行为
-
-### `tests/fixtures/`
-
-测试夹具目录。  
-用于存放测试所需的样例工作流、样例输入、样例节点文件和期望输出。
-
-## 工作流定义层
+- `unit/` 覆盖解析、校验、路径规则、执行器辅助逻辑
+- `integration/` 覆盖 CLI 和完整 workflow 行为
+- `fixtures/` 放测试夹具
 
 ### `workflows/`
 
-所有工作流定义的根目录。  
-每个子目录对应一个 workflow，属于可长期维护、适合 Git 管理的源码内容。
-
-### `workflows/problem_gen/`
-
-示例工作流目录。  
-当前用于固定一阶段的样板结构，帮助后续开发围绕真实场景推进。
-
-### `workflow.md`
-
-工作流总说明文件。  
-一阶段职责是描述：
-
-- 工作流标识
-- 入口节点
-- 整体说明
-- 工作流默认模型配置
-- 最终交付物声明
-
-正文只用于说明，不作为执行源。Mermaid 可以写，但只用于展示。
-
-详细字段规则见 [workflow-format.md](workflow-format.md)。
-
-### `nodes/`
-
-节点定义目录。  
-每个 Markdown 文件对应一个节点，后续由 engine 解析其 front matter 和正文。
-
-一阶段节点文件应描述的核心信息包括：
-
-- `id`
-- `type`
-- `next`
-- `produces`
-- 节点级模型配置（仅 `llm` 节点需要）
-- `exec`（仅 `script` 节点需要）
-- prompt 正文或脚本说明
-
-节点字段、模板引用和 `script` 执行参数的详细规则，见 [node-format.md](node-format.md)。
-
-### `scripts/`
-
-工作流私有脚本目录。  
-复杂逻辑不写进节点协议本身，而是通过本地脚本实现，例如：
-
-- 编译运行 C++
-- 打包产物
-- 对拍或数据整理
-
-### `inputs/`
-
-样例输入目录。  
-用于放默认输入和测试输入，方便直接运行 workflow。
-
-## 运行产物层
+所有工作流定义的根目录，属于 Git 管理的源码。
 
 ### `runs/`
 
-每次运行的输出根目录。  
-这个目录不是源码，而是运行现场。应按 `workflow_id/run_id` 分组生成。
+每次运行的现场落盘目录，不属于源码。
 
-仓库中只保留占位目录，不提交真实运行结果。
+## `problem_gen` 示例
 
-一阶段单次运行的目标结构如下：
+当前示例工作流目标是稳定产出：
+
+- `题面.md`
+- `std.cpp`
+- `gen.cpp`
+- `data.zip`
+
+其中 `data.zip` 内包含 25 组平铺的 `.in` / `.out`。
+
+## 单次运行结构
 
 ```text
 runs/
@@ -230,77 +123,27 @@ runs/
         01_generate_statement.stdout.txt
         01_generate_statement.stderr.txt
 
-        02_generate_solution.prompt.txt
-        02_generate_solution.stdout.txt
-        02_generate_solution.stderr.txt
+        02_generate_std.prompt.txt
+        02_generate_std.stdout.txt
+        02_generate_std.stderr.txt
 
-        03_generate_cpp.prompt.txt
-        03_generate_cpp.stdout.txt
-        03_generate_cpp.stderr.txt
+        03_generate_gen.prompt.txt
+        03_generate_gen.stdout.txt
+        03_generate_gen.stderr.txt
 
-        04_run_cpp.stdout.txt
-        04_run_cpp.stderr.txt
-
-        05_package.stdout.txt
-        05_package.stderr.txt
+        04_package_data.stdout.txt
+        04_package_data.stderr.txt
 
       outputs/
-        statement.md
-        solution.md
+        题面.md
         std.cpp
-        run_result.txt
-        package.json
+        gen.cpp
+        data.zip
 ```
 
-### `trace/`
-
-执行过程目录。  
-职责是保存调试和复盘所需的证据，包括：
-
-- 初始输入
-- 渲染后的 prompt
-- 每个节点的 stdout/stderr
-- 结构化事件日志
-
-### `outputs/`
-
-最终交付目录。  
-职责是保存真正要拿走、分享、归档或继续处理的产物，不混入调试过程文件。
-
-### `meta.json`
-
-运行元信息文件。  
-建议记录：
-
-- `run_id`
-- `workflow_id`
-- 创建时间
-- 输入来源
-- 入口节点
-
-### `state.json`
-
-运行状态文件。  
-一阶段建议只保存轻量状态，不直接内嵌大文本。建议至少包含：
-
-- 当前节点
-- 运行状态
-- 已完成节点列表
-- `outputs.<output_name> -> outputs/...`
-
-### `trace.json`
-
-事件时间线文件。  
-用于记录节点开始、结束、成功、失败等摘要事件，不承担大文本承载职责。
-
-`meta.json`、`state.json`、`trace.json` 的详细格式见 [run-files-format.md](run-files-format.md)。
-
 ## 结构原则
-
-这套结构背后的原则是：
 
 1. 工作流定义和运行实例分离
 2. 调试过程和最终产物分离
 3. Markdown 负责声明，Python engine 负责调度
 4. 复杂逻辑交给脚本，不塞进协议
-5. 测试目录从第一天起纳入结构，而不是后补

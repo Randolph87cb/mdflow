@@ -17,7 +17,6 @@
 - `id`、`entry`、`final_outputs` 必填
 - `id` 只允许字母、数字、下划线、短横线
 - `final_outputs` 为非空字符串列表
-- `final_outputs` 每项相对于 `outputs/`
 - `final_outputs` 不允许绝对路径、`..`、重复
 
 ## 节点集合
@@ -63,3 +62,8 @@
 - `produces` 不允许绝对路径、`..`
 - 多个节点不允许声明相同的 `produces`
 - `final_outputs` 中每个文件都必须至少被某个节点 `produces` 覆盖
+
+补充说明：
+
+- `llm` 节点的 `produces` 总是通过复制 `stdout` 满足
+- `script` 节点的 `produces` 允许由脚本直接写出真实文件，只要最终落在 `outputs/<produces>` 即视为满足

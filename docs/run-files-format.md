@@ -1,6 +1,6 @@
 # 运行文件规范
 
-本文档用于固定 `mdflow` 一阶段运行目录中的核心文件格式：
+本文档固定 `mdflow` 一阶段运行目录中的核心文件格式：
 
 - `meta.json`
 - `state.json`
@@ -9,8 +9,6 @@
 ## `meta.json`
 
 定位：一次 run 的静态元信息。
-
-推荐格式：
 
 ```json
 {
@@ -25,68 +23,41 @@
 }
 ```
 
-字段：
-
-- `run_id`
-- `workflow_id`
-- `workflow_dir`
-- `input_file`
-- `entry_node`
-- `started_at`
-- `finished_at`
-- `status`
-
 规则：
 
 - `workflow_dir`、`input_file` 存相对于 `project_root` 的路径
 - `status` 只允许 `running`、`success`、`failed`
-- `finished_at` 在 run 创建时可为 `null`
 
 ## `state.json`
 
 定位：当前 run 的轻量状态快照。
-
-推荐格式：
 
 ```json
 {
   "run_id": "2026-06-07_12-30-00",
   "workflow_id": "problem_gen",
   "status": "running",
-  "current_node": "generate_cpp",
+  "current_node": "generate_gen",
   "completed_nodes": [
     "generate_statement",
-    "generate_solution"
+    "generate_std"
   ],
   "outputs": {
-    "statement.md": "outputs/statement.md",
-    "solution.md": "outputs/solution.md",
+    "题面.md": "outputs/题面.md",
     "std.cpp": "outputs/std.cpp"
   }
 }
 ```
-
-字段：
-
-- `run_id`
-- `workflow_id`
-- `status`
-- `current_node`
-- `completed_nodes`
-- `outputs`
 
 规则：
 
 - `outputs` 的 value 存相对于 `run_dir` 的路径
 - `outputs` 只记录最终交付物，不记录 trace 文件
 - `success` 时 `current_node = null`
-- `failed` 时保留失败节点作为 `current_node`
 
 ## `trace.json`
 
 定位：结构化事件时间线。
-
-推荐格式：
 
 ```json
 {
@@ -111,24 +82,7 @@
 - `run_succeeded`
 - `run_failed`
 
-公共字段：
-
-- `seq`
-- `type`
-- `timestamp`
-
-补充字段：
-
-- run 事件：`run_id`、`workflow_id`
-- 节点事件：`node_id`、`node_type`
-- 成功事件：`duration_ms`、`produces`
-- 失败事件：`duration_ms`、`error_type`、`message`
-- script 失败可额外带 `returncode`
-- 超时失败可额外带 `timeout_sec`
-
 ## `trace/` 中文件命名
-
-固定规则：
 
 - 初始输入：`00_initial.stdout.txt`
 - LLM 节点：
@@ -139,4 +93,10 @@
   - `NN_nodeid.stdout.txt`
   - `NN_nodeid.stderr.txt`
 
-`produces` 若存在，仅表示把对应节点的 `stdout` 复制到 `outputs/<produces>`。
+## `produces` 的落盘语义
+
+- `llm` 节点：
+  始终把当前节点 `stdout` 复制到 `outputs/<produces>`
+- `script` 节点：
+  如果脚本已经写出了 `outputs/<produces>`，则直接登记该文件
+  否则 fallback 为把当前节点 `stdout` 复制到 `outputs/<produces>`

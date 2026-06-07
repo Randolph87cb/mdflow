@@ -96,70 +96,76 @@ def execute_run(
             stdout_path = trace_dir / f"{prefix}.stdout.txt"
             stderr_path = trace_dir / f"{prefix}.stderr.txt"
             prompt_path = trace_dir / f"{prefix}.prompt.txt"
+            stdout_text = ""
+            stderr_text = ""
 
-            if node.type == "llm":
-                prompt_text = render_prompt(node.body, trace_lookup)
-                prompt_path.write_text(prompt_text, encoding="utf-8")
-                resolved_model = merge_model_config(config.model, bundle.workflow.model, node.model)
-                stdout_text, stderr_text = run_llm_node(node, prompt_text, resolved_model)
-            else:
-                assert node.exec is not None
-                cwd = resolve_cwd(run_dir, node.exec.cwd)
-                resolved_args = resolve_script_args(
-                    node.exec.program,
-                    node.exec.args,
-                    bundle.workflow.workflow_dir,
-                    run_dir,
-                    trace_lookup,
-                )
-                try:
+            try:
+                if node.type == "llm":
+                    prompt_text = render_prompt(node.body, trace_lookup)
+                    prompt_path.write_text(prompt_text, encoding="utf-8")
+                    resolved_model = merge_model_config(config.model, bundle.workflow.model, node.model)
+                    provider_name = str(resolved_model.get("provider", ""))
+                    provider_config = config.providers.get(provider_name, {})
+                    stdout_text, stderr_text = run_llm_node(node, prompt_text, resolved_model, provider_config)
+                else:
+                    assert node.exec is not None
+                    cwd = resolve_cwd(run_dir, node.exec.cwd)
+                    resolved_args = resolve_script_args(
+                        node.exec.program,
+                        node.exec.args,
+                        bundle.workflow.workflow_dir,
+                        run_dir,
+                        trace_lookup,
+                    )
                     stdout_text, stderr_text = run_script_node(
                         program=node.exec.program,
                         args=resolved_args,
                         cwd=str(cwd),
                         timeout_sec=node.exec.timeout_sec,
                     )
-                except RunFailure as exc:
-                    stdout_text = ""
-                    stderr_text = exc.message
-                    stdout_path.write_text(stdout_text, encoding="utf-8")
-                    stderr_path.write_text(stderr_text, encoding="utf-8")
-                    duration_ms = elapsed_ms(started)
-                    state.status = "failed"
-                    state.current_node = node.id
-                    write_state(run_dir / "state.json", state)
-                    append_trace_event(
-                        trace_json,
-                        TraceEvent(
-                            seq=seq,
-                            type="node_failed",
-                            timestamp=timestamp_now(),
-                            payload=_failure_payload(node.id, node.type, duration_ms, exc),
-                        ),
-                    )
-                    seq += 1
-                    append_trace_event(
-                        trace_json,
-                        TraceEvent(
-                            seq=seq,
-                            type="run_failed",
-                            timestamp=timestamp_now(),
-                            payload={"run_id": run_id, "workflow_id": bundle.workflow.id, "failed_node": node.id},
-                        ),
-                    )
-                    meta.finished_at = timestamp_now()
-                    meta.status = "failed"
-                    write_meta(run_dir / "meta.json", meta)
-                    raise
+            except RunFailure as exc:
+                failure_stdout = stdout_text or exc.stdout
+                failure_stderr = stderr_text or exc.stderr
+                stdout_path.write_text(failure_stdout, encoding="utf-8")
+                stderr_message = failure_stderr
+                if exc.message:
+                    if stderr_message and not stderr_message.endswith("\n"):
+                        stderr_message += "\n"
+                    stderr_message += exc.message
+                stderr_path.write_text(stderr_message.strip(), encoding="utf-8")
+                duration_ms = elapsed_ms(started)
+                state.status = "failed"
+                state.current_node = node.id
+                write_state(run_dir / "state.json", state)
+                append_trace_event(
+                    trace_json,
+                    TraceEvent(
+                        seq=seq,
+                        type="node_failed",
+                        timestamp=timestamp_now(),
+                        payload=_failure_payload(node.id, node.type, duration_ms, exc),
+                    ),
+                )
+                seq += 1
+                append_trace_event(
+                    trace_json,
+                    TraceEvent(
+                        seq=seq,
+                        type="run_failed",
+                        timestamp=timestamp_now(),
+                        payload={"run_id": run_id, "workflow_id": bundle.workflow.id, "failed_node": node.id},
+                    ),
+                )
+                meta.finished_at = timestamp_now()
+                meta.status = "failed"
+                write_meta(run_dir / "meta.json", meta)
+                return run_dir, state
 
             stdout_path.write_text(stdout_text, encoding="utf-8")
             stderr_path.write_text(stderr_text, encoding="utf-8")
 
             if node.produces:
-                output_target = resolve_output_target(run_dir, node.produces)
-                output_target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(stdout_path, output_target)
-                state.outputs[node.produces] = output_target.relative_to(run_dir).as_posix()
+                _register_node_output(run_dir, node.type, node.produces, stdout_path, state)
 
             state.completed_nodes.append(node.id)
             state.current_node = node.next
@@ -269,3 +275,20 @@ def _failure_payload(node_id: str, node_type: str, duration_ms: int, exc: RunFai
     if exc.timeout_sec is not None:
         payload["timeout_sec"] = exc.timeout_sec
     return payload
+
+
+def _register_node_output(
+    run_dir: Path,
+    node_type: str,
+    produces: str,
+    stdout_path: Path,
+    state: RunState,
+) -> None:
+    run_root = run_dir.resolve()
+    output_target = resolve_output_target(run_root, produces)
+    if node_type == "script" and output_target.exists():
+        state.outputs[produces] = output_target.relative_to(run_root).as_posix()
+        return
+    output_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(stdout_path, output_target)
+    state.outputs[produces] = output_target.relative_to(run_root).as_posix()

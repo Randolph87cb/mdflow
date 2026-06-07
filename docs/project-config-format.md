@@ -1,18 +1,6 @@
 # 项目配置文件规范
 
-本文档用于固定 `mdflow` 一阶段的 `mdflow.yaml` 协议。
-
-`mdflow.yaml` 只负责项目级默认配置，不负责：
-
-- workflow 执行顺序
-- 节点级执行细节
-- 运行时状态
-
-配置优先级固定为：
-
-1. `mdflow.yaml`
-2. `workflow.md`
-3. `node.md`
+本文档固定 `mdflow` 一阶段的 `mdflow.yaml` 协议。
 
 ## 推荐格式
 
@@ -23,8 +11,8 @@ runs_dir: runs
 default_workflow: problem_gen
 
 model:
-  provider: mock
-  model: mock-llm
+  provider: micu_main
+  model: gpt-5.4-mini
   temperature: 0.7
   max_tokens: 4000
 
@@ -32,37 +20,22 @@ providers:
   mock:
     type: mock
 
-  openai_main:
+  micu_main:
     type: openai_compatible
-    base_url_env: OPENAI_BASE_URL
-    api_key_env: OPENAI_API_KEY
+    base_url_env: MICU_API_BASE_URL
+    api_key_env: MICU_API_KEY
 ```
 
 ## 必填字段
 
-- `name: string`
-- `workflows_dir: string`
-- `runs_dir: string`
-- `default_workflow: string`
-- `model: object`
-- `providers: object`
+- `name`
+- `workflows_dir`
+- `runs_dir`
+- `default_workflow`
+- `model`
+- `providers`
 
 ## 字段规则
-
-### `workflows_dir`
-
-- 相对于 `project_root`
-- 默认推荐写 `workflows`
-
-### `runs_dir`
-
-- 相对于 `project_root`
-- 默认推荐写 `runs`
-
-### `default_workflow`
-
-- CLI `run` 未显式传入 workflow 时使用
-- 值应为 workflow id
 
 ### `model`
 
@@ -79,7 +52,7 @@ providers:
 
 provider 注册表，key 是 provider 名。
 
-一阶段只支持两类 provider：
+一阶段只支持：
 
 - `mock`
 - `openai_compatible`
@@ -96,19 +69,25 @@ providers:
 
 ```yaml
 providers:
-  openai_main:
+  micu_main:
     type: openai_compatible
-    base_url_env: OPENAI_BASE_URL
-    api_key_env: OPENAI_API_KEY
+    base_url_env: MICU_API_BASE_URL
+    api_key_env: MICU_API_KEY
 ```
 
-一阶段先只校验字段，不实际调用。
+### Base URL 规则
+
+运行时会对 `openai_compatible` 的 base URL 做归一化：
+
+- 如果环境变量是 `https://www.micuapi.ai`
+  会自动补成 `https://www.micuapi.ai/v1`
+- 如果已经带 `/v1`
+  则直接使用
 
 ## 路径规则
 
 - `project_root` = `mdflow.yaml` 所在目录
 - `workflows_dir`、`runs_dir` 都按相对 `project_root` 解析
-- 解析后必须仍位于 `project_root` 内
 
 ## 校验最小集合
 

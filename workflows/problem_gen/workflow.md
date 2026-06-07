@@ -3,21 +3,21 @@ id: problem_gen
 name: Problem Generation
 entry: generate_statement
 model:
-  provider: mock
-  model: mock-llm
+  model: gpt-5.4-mini
+  temperature: 0.5
+  max_tokens: 8000
 final_outputs:
-  - statement.md
-  - solution.md
+  - 题面.md
   - std.cpp
-  - run_result.txt
-  - package.json
+  - gen.cpp
+  - data.zip
 ---
 
 # Problem Generation Workflow
 
-这个示例 workflow 用于演示一阶段协议：
+这个示例 workflow 用于演示真实出题链：
 
-- LLM 节点通过 `{{node_id.stdout}}` 引用上游文本
-- script 节点优先通过 `outputs/...` 显式读取最终文件
-- `produces` 把节点 stdout 发布到 `outputs/`
-- `final_outputs` 只声明必要交付物
+- 先生成题面
+- 再生成标准程序 `std.cpp`
+- 再生成数据生成器 `gen.cpp`
+- 最后编译并生成 25 组平铺数据，打包为 `data.zip`

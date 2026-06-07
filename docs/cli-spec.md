@@ -11,70 +11,41 @@
 
 ## `mdflow validate`
 
-用法：
-
-```bash
+```powershell
 mdflow validate workflows/problem_gen
 mdflow validate problem_gen
 ```
 
-参数：
-
-- `workflow`：可为 workflow 目录路径，或 workflow id
-
-规则：
-
-1. 如果参数是现有目录，直接按目录处理
-2. 否则按 workflow id 处理，拼到 `<workflows_dir>/<workflow_id>`
-
-退出码：
-
-- `0`：通过
-- `1`：校验失败
+- `workflow` 可为 workflow 目录路径，或 workflow id
 
 ## `mdflow run`
 
-用法：
-
-```bash
+```powershell
 mdflow run workflows/problem_gen --input workflows/problem_gen/inputs/default.md
 mdflow run problem_gen --input workflows/problem_gen/inputs/default.md
 mdflow run --input workflows/problem_gen/inputs/default.md
 ```
 
-参数：
+- `workflow` 可选，省略时使用 `default_workflow`
+- `--input <file>` 必填
+- `--run-id <id>` 可选
 
-- `workflow`：可选，省略时使用 `default_workflow`
-- `--input <file>`：必填
-- `--run-id <id>`：可选
+真实 Micu 示例：
 
-行为：
-
-- 自动先执行 validate
-- 创建 `run_dir`
-- 写入 `meta.json`、`state.json`
-- 写入 `trace/00_initial.stdout.txt`
-- 顺序执行节点直到成功或失败
-
-退出码：
-
-- `0`：运行成功
-- `1`：运行失败
-- `2`：参数错误或目标不存在
+```powershell
+$env:MICU_API_KEY = "your-api-key"
+$env:MICU_API_BASE_URL = "https://www.micuapi.ai/v1"
+$env:PYTHONPATH = "src"
+python -m mdflow.cli run problem_gen --input workflows/problem_gen/inputs/default.md
+```
 
 ## `mdflow show`
 
-用法：
-
-```bash
+```powershell
 mdflow show runs/problem_gen/2026-06-07_12-30-00
 ```
 
-参数：
-
-- `run_dir`
-
-一阶段只接受 run 目录路径，不支持只传 run_id。
+- 只接受 run 目录路径
 
 展示内容：
 
@@ -87,18 +58,11 @@ mdflow show runs/problem_gen/2026-06-07_12-30-00
 
 ## `mdflow cat`
 
-用法：
-
-```bash
-mdflow cat runs/problem_gen/2026-06-07_12-30-00 generate_cpp.stdout
-mdflow cat runs/problem_gen/2026-06-07_12-30-00 run_cpp.stderr
-mdflow cat runs/problem_gen/2026-06-07_12-30-00 output:statement.md
+```powershell
+mdflow cat runs/problem_gen/2026-06-07_12-30-00 generate_std.stdout
+mdflow cat runs/problem_gen/2026-06-07_12-30-00 package_data.stderr
+mdflow cat runs/problem_gen/2026-06-07_12-30-00 output:题面.md
 ```
-
-参数：
-
-- `run_dir`
-- `target`
 
 支持目标：
 
@@ -107,12 +71,15 @@ mdflow cat runs/problem_gen/2026-06-07_12-30-00 output:statement.md
 - `<node_id>.stderr`
 - `output:<filename>`
 
-规则：
+## 退出码
 
-- 节点目标直接映射到 `trace/`
-- `output:<filename>` 从 `state.json.outputs` 中查找
-
-退出码：
-
-- `0`：成功
-- `1`：目标不存在或文件缺失
+- `validate`
+  - `0` 通过
+  - `1` 失败
+- `run`
+  - `0` 成功
+  - `1` 运行失败
+  - `2` 参数错误或目标不存在
+- `show` / `cat`
+  - `0` 成功
+  - `1` 目标不存在或文件缺失

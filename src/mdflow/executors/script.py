@@ -24,13 +24,13 @@ def run_script_node(
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
         raise RunFailure(
             "",
             "Script execution timed out",
             error_type="script_timeout",
             timeout_sec=timeout_sec,
+            stdout=exc.stdout or "",
+            stderr=exc.stderr or "",
         ) from exc
 
     if completed.returncode != 0:
@@ -39,5 +39,7 @@ def run_script_node(
             "Script exited with non-zero status",
             error_type="script_exit_nonzero",
             returncode=completed.returncode,
+            stdout=completed.stdout,
+            stderr=completed.stderr,
         )
     return completed.stdout, completed.stderr

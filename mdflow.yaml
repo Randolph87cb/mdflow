@@ -3,14 +3,14 @@ workflows_dir: workflows
 runs_dir: runs
 default_workflow: problem_gen
 model:
-  provider: mock
-  model: mock-llm
+  provider: micu_main
+  model: gpt-5.4-mini
   temperature: 0.7
   max_tokens: 4000
 providers:
   mock:
     type: mock
-  openai_main:
+  micu_main:
     type: openai_compatible
-    base_url_env: OPENAI_BASE_URL
-    api_key_env: OPENAI_API_KEY
+    base_url_env: MICU_API_BASE_URL
+    api_key_env: MICU_API_KEY
