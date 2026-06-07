@@ -65,7 +65,8 @@ def build_graph(bundle: WorkflowBundle, *, state: dict[str, Any] | None = None) 
     attempts = dict(state.get("node_attempts", {})) if state else {}
     completed = set(state.get("completed_nodes", [])) if state else set()
     current_node = state.get("current_node") if state else None
-    failed_node = state.get("last_failure", {}).get("node_id") if state else None
+    last_failure = state.get("last_failure") if state else None
+    failed_node = last_failure.get("node_id") if isinstance(last_failure, dict) else None
     nodes: list[dict[str, Any]] = []
     for node in bundle.nodes:
         status = "idle"

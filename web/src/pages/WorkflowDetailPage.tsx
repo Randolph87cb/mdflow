@@ -56,59 +56,78 @@ export function WorkflowDetailPage() {
 
   return (
     <div className="page workflow-detail-page">
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <strong>{workflow?.workflow_id}</strong>
-            <div className="subtle">{workflow?.workflow_path}</div>
+      <section className="workspace-header panel">
+        <div className="workspace-heading">
+          <div className="eyebrow">Workflow</div>
+          <strong>{workflow?.workflow_id}</strong>
+          <div className="subtle">{workflow?.workflow_path}</div>
+        </div>
+        <div className="workspace-summary">
+          <div className="summary-chip">
+            <span className="meta-label">Entry</span>
+            <strong>{workflow?.entry || "-"}</strong>
           </div>
-          <div className="actions-cell">
-            <button onClick={() => setRunOpen(true)}>Run workflow</button>
-            <button onClick={() => setCopyOpen(true)}>Copy workflow</button>
+          <div className="summary-chip">
+            <span className="meta-label">Nodes</span>
+            <strong>{nodes.length}</strong>
+          </div>
+          <div className="summary-chip">
+            <span className="meta-label">Outputs</span>
+            <strong>{workflow?.final_outputs.length || 0}</strong>
           </div>
         </div>
-        <div className="panel-body-grid">
-          <div className="graph-column">
-            <WorkflowGraph nodes={graph.nodes} edges={graph.edges} selectedNodeId={selectedNodeId} onSelectNode={loadNode} />
-          </div>
-          <div className="side-column">
-            <section className="panel nested-panel">
-              <div className="panel-header">
-                <strong>Nodes</strong>
-              </div>
-              <div className="list-panel">
-                {nodes.map((node) => (
-                  <button key={node.id} className="list-row" onClick={() => loadNode(node.id)}>
-                    <span>{node.id}</span>
-                    <span className="subtle">{node.type}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-            <section className="panel nested-panel">
-              <div className="panel-header">
-                <strong>Runs</strong>
-              </div>
-              <div className="list-panel">
-                {runs.map((run) => (
-                  <button key={run.run_id} className="list-row" onClick={() => navigate(`/workflows/${workflowId}/runs/${run.run_id}`)}>
-                    <span>{run.run_id}</span>
-                    <span className="subtle">{run.status}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </div>
-          <div className="inspector-column">
-            <NodeInspector data={inspectorData} title="Node Source" />
-            {selectedNodeId ? (
-              <button className="full-width-button" onClick={() => setEditorOpen(true)}>
-                Edit node
-              </button>
-            ) : null}
-          </div>
+        <div className="actions-cell">
+          <button className="primary-button" onClick={() => setRunOpen(true)}>
+            Run workflow
+          </button>
+          <button className="ghost-button" onClick={() => setCopyOpen(true)}>
+            Copy workflow
+          </button>
         </div>
       </section>
+      <div className="workspace-layout">
+        <aside className="workspace-sidebar panel">
+          <div className="panel-header">
+            <strong>Nodes</strong>
+          </div>
+          <div className="list-panel">
+            {nodes.map((node) => (
+              <button key={node.id} className={`list-row ${selectedNodeId === node.id ? "selected" : ""}`} onClick={() => loadNode(node.id)}>
+                <span>{node.id}</span>
+                <span className={`status-pill ${toneFromNodeType(node.type)}`}>{node.type}</span>
+              </button>
+            ))}
+          </div>
+          <div className="panel-header">
+            <strong>Recent runs</strong>
+          </div>
+          <div className="list-panel">
+            {runs.map((run) => (
+              <button key={run.run_id} className="list-row" onClick={() => navigate(`/workflows/${workflowId}/runs/${run.run_id}`)}>
+                <span>{run.run_id}</span>
+                <span className={`status-pill ${toneFromRunStatus(run.status)}`}>{run.status}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+        <section className="workspace-main panel">
+          <div className="panel-header">
+            <div>
+              <strong>Node graph</strong>
+              <div className="subtle">Click a node to inspect source and edit the live workflow definition.</div>
+            </div>
+          </div>
+          <WorkflowGraph nodes={graph.nodes} edges={graph.edges} selectedNodeId={selectedNodeId} onSelectNode={loadNode} />
+        </section>
+        <aside className="workspace-inspector">
+          <NodeInspector data={inspectorData} title="Node Source" />
+          {selectedNodeId ? (
+            <button className="primary-button full-width-button" onClick={() => setEditorOpen(true)}>
+              Edit node
+            </button>
+          ) : null}
+        </aside>
+      </div>
       <RunDialog
         open={runOpen}
         onClose={() => setRunOpen(false)}
@@ -144,4 +163,30 @@ export function WorkflowDetailPage() {
       />
     </div>
   );
+}
+
+function toneFromNodeType(type: string) {
+  switch (type) {
+    case "llm":
+      return "running";
+    case "script":
+      return "idle";
+    case "router":
+      return "success";
+    default:
+      return "idle";
+  }
+}
+
+function toneFromRunStatus(status: string) {
+  switch (status.toLowerCase()) {
+    case "success":
+      return "success";
+    case "failed":
+      return "failed";
+    case "running":
+      return "running";
+    default:
+      return "idle";
+  }
 }

@@ -13,13 +13,21 @@ export function AppShell({ children }: PropsWithChildren) {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div>
-          <Link to="/" className="brand">
-            mdflow Workflow Studio
+        <div className="brand-wrap">
+          <Link to="/" className="brand-mark" aria-label="mdflow home">
+            md
           </Link>
-          <div className="subtle">本地 Workflow 调试工作台</div>
+          <div>
+            <Link to="/" className="brand">
+              mdflow <span>Workflow Studio</span>
+            </Link>
+            <div className="subtle">本地 Markdown 工作流开发与调试平台</div>
+          </div>
         </div>
-        <div className="status-chip">{status ? "Service OK" : "Loading..."}</div>
+        <div className="header-status-row">
+          <span className="status-pill success">{status ? "Connected" : "Connecting"}</span>
+          {status ? <span className="header-path">{status.workflows_dir}</span> : null}
+        </div>
       </header>
       <main className="app-main">{children}</main>
     </div>

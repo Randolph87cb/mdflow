@@ -96,9 +96,12 @@ export function RunDetailPage() {
         />
       ) : null}
       <div className="run-layout">
-        <section className="panel">
+        <section className="panel run-graph-panel">
           <div className="panel-header">
-            <strong>Run Graph</strong>
+            <div>
+              <strong>Run Graph</strong>
+              <div className="subtle">Focus a node to inspect trace and rerun from that point.</div>
+            </div>
           </div>
           <WorkflowGraph
             nodes={detail?.graph.nodes ?? []}
@@ -108,7 +111,7 @@ export function RunDetailPage() {
           />
           {selectedNodeId ? (
             <button
-              className="full-width-button"
+              className="primary-button full-width-button"
               onClick={async () => {
                 const result = await studioApi.rerun(workflowId, runId, { from_node: selectedNodeId });
                 window.location.href = `/workflows/${workflowId}/runs/${result.run_id}`;

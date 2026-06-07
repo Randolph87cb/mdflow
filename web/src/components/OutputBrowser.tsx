@@ -13,8 +13,13 @@ export function OutputBrowser({ items, selected, active, onSelect, onToggle, onD
   return (
     <section className="panel">
       <div className="panel-header">
-        <strong>Outputs</strong>
-        <button onClick={onDownloadZip}>Download zip</button>
+        <div>
+          <strong>Outputs</strong>
+          <div className="subtle">{items.length} files</div>
+        </div>
+        <button className="ghost-button" onClick={onDownloadZip}>
+          Download zip
+        </button>
       </div>
       <div className="output-list">
         {items.map((item) => (
@@ -30,7 +35,7 @@ export function OutputBrowser({ items, selected, active, onSelect, onToggle, onD
             <div className="output-main">
               <div>{item.name}</div>
               <div className="subtle">
-                {item.path} · {item.size} bytes
+                {item.path} · {item.size} bytes {item.previewable ? "· preview" : "· binary"}
               </div>
             </div>
           </div>

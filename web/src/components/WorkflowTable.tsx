@@ -9,36 +9,56 @@ type Props = {
 
 export function WorkflowTable({ items, onRun, onCopy }: Props) {
   return (
-    <table className="studio-table">
-      <thead>
-        <tr>
-          <th>Workflow</th>
-          <th>Nodes</th>
-          <th>Latest Run</th>
-          <th>Status</th>
-          <th>Started</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((item) => (
-          <tr key={item.workflow_id}>
-            <td>
+    <div className="workflow-card-list">
+      {items.map((item) => (
+        <article key={item.workflow_id} className="workflow-card">
+          <div className="workflow-card-main">
+            <div className="workflow-card-title">
               <div className="table-primary">{item.workflow_id}</div>
-              <div className="subtle">{item.name || item.workflow_id}</div>
-            </td>
-            <td>{item.node_count}</td>
-            <td>{item.latest_run?.run_id || "-"}</td>
-            <td>{item.latest_run?.status || "-"}</td>
-            <td>{item.latest_run?.started_at || "-"}</td>
-            <td className="actions-cell">
-              <Link to={`/workflows/${item.workflow_id}`}>Open</Link>
-              <button onClick={() => onRun(item.workflow_id)}>Run</button>
-              <button onClick={() => onCopy(item.workflow_id)}>Copy</button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+              <span className={`status-pill ${toneFromStatus(item.latest_run?.status)}`}>{item.latest_run?.status || "Idle"}</span>
+            </div>
+            <div className="subtle">{item.name || item.workflow_id}</div>
+            <div className="workflow-meta-grid">
+              <div>
+                <span className="meta-label">Nodes</span>
+                <strong>{item.node_count}</strong>
+              </div>
+              <div>
+                <span className="meta-label">Latest run</span>
+                <strong>{item.latest_run?.run_id || "-"}</strong>
+              </div>
+              <div>
+                <span className="meta-label">Started</span>
+                <strong>{item.latest_run?.started_at || "-"}</strong>
+              </div>
+            </div>
+          </div>
+          <div className="actions-cell">
+            <Link className="button-link" to={`/workflows/${item.workflow_id}`}>
+              Open
+            </Link>
+            <button className="ghost-button" onClick={() => onRun(item.workflow_id)}>
+              Run
+            </button>
+            <button className="ghost-button" onClick={() => onCopy(item.workflow_id)}>
+              Copy
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
   );
+}
+
+function toneFromStatus(status?: string | null) {
+  switch ((status || "").toLowerCase()) {
+    case "success":
+      return "success";
+    case "failed":
+      return "failed";
+    case "running":
+      return "running";
+    default:
+      return "idle";
+  }
 }

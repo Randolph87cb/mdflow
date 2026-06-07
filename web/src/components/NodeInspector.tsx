@@ -28,8 +28,11 @@ export function NodeInspector({ data, title }: Props) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <strong>{title || "Node Inspector"}</strong>
-        {data ? <span className="subtle">{data.node.id}</span> : null}
+        <div>
+          <strong>{title || "Node Inspector"}</strong>
+          {data ? <div className="subtle">{data.node.id}</div> : null}
+        </div>
+        {data ? <span className={`status-pill ${toneFromType(data.node.type)}`}>{data.node.type}</span> : null}
       </div>
       <div className="tabs">
         <button className={tab === "source" ? "active" : ""} onClick={() => setTab("source")}>
@@ -48,4 +51,17 @@ export function NodeInspector({ data, title }: Props) {
       {data && tab === "output" ? <pre className="code-block">{data.trace.output || "No output preview available."}</pre> : null}
     </section>
   );
+}
+
+function toneFromType(type: string) {
+  switch (type) {
+    case "llm":
+      return "running";
+    case "script":
+      return "idle";
+    case "router":
+      return "success";
+    default:
+      return "idle";
+  }
 }

@@ -9,9 +9,12 @@ export function OutputPreview({ data, downloadHref }: Props) {
   return (
     <section className="panel">
       <div className="panel-header">
-        <strong>Output Preview</strong>
+        <div>
+          <strong>Output Preview</strong>
+          <div className="subtle">{data?.name || "No file selected"}</div>
+        </div>
         {downloadHref ? (
-          <a href={downloadHref} target="_blank" rel="noreferrer">
+          <a className="button-link" href={downloadHref} target="_blank" rel="noreferrer">
             Download
           </a>
         ) : null}
