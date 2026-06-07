@@ -13,6 +13,7 @@ mdflow-project/
 
   docs/
     project-structure.md
+    studio-pages.md
     node-format.md
     workflow-format.md
     project-config-format.md
@@ -112,6 +113,10 @@ Workflow Studio 的前端代码：
 - React + Vite
 - 3 个主页面：workflow 列表、workflow 详情、run 详情
 - 通过 `/api/*` 调用本地 Studio 后端
+
+页面职责边界见：
+
+- [studio-pages.md](studio-pages.md)
 
 ### `tests/`
 

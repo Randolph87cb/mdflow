@@ -80,6 +80,7 @@ python -m mdflow.cli run problem_gen --input workflows/problem_gen/inputs/defaul
 当前已确定的规范文档：
 
 - 目录结构：[docs/project-structure.md](docs/project-structure.md)
+- Studio 页面职责：[docs/studio-pages.md](docs/studio-pages.md)
 - 节点格式：[docs/node-format.md](docs/node-format.md)
 - 工作流格式：[docs/workflow-format.md](docs/workflow-format.md)
 - 项目配置：[docs/project-config-format.md](docs/project-config-format.md)
