@@ -1,23 +1,23 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  background: #09111b;
-  color: #e8eff8;
-  --bg: #09111b;
-  --bg-elevated: #0f1722;
-  --bg-panel: #111c29;
-  --bg-panel-2: #152334;
-  --bg-panel-3: #0d1621;
-  --border: rgba(147, 177, 206, 0.18);
-  --border-strong: rgba(147, 177, 206, 0.28);
-  --text: #e8eff8;
-  --muted: #8da2bb;
-  --blue: #50b0ff;
-  --teal: #36d0b4;
-  --green: #38d39f;
-  --amber: #ffbd4a;
-  --red: #ff7d84;
-  --shadow: 0 24px 64px rgba(0, 0, 0, 0.34);
+  background: #edf3f8;
+  color: #182433;
+  --bg: #edf3f8;
+  --bg-elevated: #f5f8fb;
+  --bg-panel: #ffffff;
+  --bg-panel-2: #f7fafd;
+  --bg-panel-3: #eef4f9;
+  --border: rgba(101, 127, 156, 0.16);
+  --border-strong: rgba(101, 127, 156, 0.28);
+  --text: #182433;
+  --muted: #66798d;
+  --blue: #2f7fd8;
+  --teal: #2aa18b;
+  --green: #2fba7a;
+  --amber: #d99a22;
+  --red: #d4636b;
+  --shadow: 0 22px 54px rgba(27, 48, 73, 0.08);
 }
 
 * {
@@ -33,9 +33,9 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(80, 176, 255, 0.12), transparent 26%),
-    radial-gradient(circle at top right, rgba(54, 208, 180, 0.08), transparent 20%),
-    linear-gradient(180deg, #09111b 0%, #0a1320 100%);
+    radial-gradient(circle at top left, rgba(80, 176, 255, 0.14), transparent 24%),
+    radial-gradient(circle at top right, rgba(42, 161, 139, 0.08), transparent 18%),
+    linear-gradient(180deg, #f7fafc 0%, #edf3f8 100%);
   color: var(--text);
 }
 
@@ -65,8 +65,8 @@ button {
   align-items: center;
   gap: 16px;
   padding: 22px 28px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(8, 16, 27, 0.85);
+  border-bottom: 1px solid rgba(101, 127, 156, 0.12);
+  background: rgba(255, 255, 255, 0.86);
   backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
@@ -85,8 +85,9 @@ button {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(180deg, #24538a 0%, #143355 100%);
-  border: 1px solid rgba(154, 196, 255, 0.28);
+  background: linear-gradient(180deg, #2d5f98 0%, #1e4672 100%);
+  border: 1px solid rgba(45, 95, 152, 0.18);
+  color: #f8fbff;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -95,10 +96,11 @@ button {
   font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.03em;
+  color: #1c2a3c;
 }
 
 .brand span {
-  color: #9ab6d5;
+  color: #476582;
   font-weight: 500;
 }
 
@@ -116,9 +118,9 @@ button {
 .header-path {
   padding: 7px 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--border);
-  color: #b3c5d8;
+  color: #617589;
   font-size: 12px;
 }
 
@@ -132,34 +134,34 @@ button {
   padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
-  color: #d6e2ef;
+  background: rgba(255, 255, 255, 0.78);
+  color: #34506d;
   font-size: 12px;
   font-weight: 700;
 }
 
 .status-pill.success {
-  background: rgba(56, 211, 159, 0.16);
-  border-color: rgba(56, 211, 159, 0.35);
-  color: #92f2c8;
+  background: rgba(47, 186, 122, 0.12);
+  border-color: rgba(47, 186, 122, 0.28);
+  color: #1f8f5b;
 }
 
 .status-pill.failed {
-  background: rgba(255, 125, 132, 0.16);
-  border-color: rgba(255, 125, 132, 0.35);
-  color: #ffb3b8;
+  background: rgba(212, 99, 107, 0.12);
+  border-color: rgba(212, 99, 107, 0.28);
+  color: #b34d55;
 }
 
 .status-pill.running {
-  background: rgba(80, 176, 255, 0.16);
-  border-color: rgba(80, 176, 255, 0.35);
-  color: #a9d8ff;
+  background: rgba(47, 127, 216, 0.12);
+  border-color: rgba(47, 127, 216, 0.28);
+  color: #296dbb;
 }
 
 .status-pill.idle {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.78);
   border-color: var(--border);
-  color: #d6e2ef;
+  color: #34506d;
 }
 
 .app-main {
@@ -173,7 +175,7 @@ button {
 }
 
 .panel {
-  background: linear-gradient(180deg, rgba(20, 32, 48, 0.96) 0%, rgba(13, 24, 37, 0.98) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(248, 251, 254, 0.98) 100%);
   border: 1px solid var(--border);
   border-radius: 18px;
   overflow: hidden;
@@ -186,7 +188,7 @@ button {
   align-items: center;
   gap: 12px;
   padding: 16px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(101, 127, 156, 0.1);
 }
 
 .hero-panel {
@@ -207,13 +209,13 @@ button {
 .hero-copy p {
   margin: 0;
   max-width: 680px;
-  color: #b5c6d8;
+  color: #62758a;
   line-height: 1.6;
 }
 
 .eyebrow,
 .run-kicker {
-  color: #6ab9ff;
+  color: #3b86d8;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -232,8 +234,8 @@ button {
   min-width: 120px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, #ffffff 0%, #f7fafd 100%);
+  border: 1px solid rgba(101, 127, 156, 0.16);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -243,6 +245,7 @@ button {
 .summary-chip strong {
   font-size: 22px;
   letter-spacing: -0.03em;
+  color: #1c2b3d;
 }
 
 .meta-label {
@@ -263,7 +266,7 @@ button {
   justify-content: space-between;
   gap: 16px;
   padding: 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(101, 127, 156, 0.08);
 }
 
 .workflow-card:first-child {
@@ -299,8 +302,8 @@ button {
 .workflow-meta-grid > div {
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #f8fbfe;
+  border: 1px solid rgba(101, 127, 156, 0.12);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -330,8 +333,8 @@ button {
 
 .primary-button,
 .modal-actions button[type="submit"] {
-  border: 1px solid rgba(89, 187, 255, 0.38);
-  background: linear-gradient(180deg, #1a6db0 0%, #124c7a 100%);
+  border: 1px solid rgba(47, 127, 216, 0.28);
+  background: linear-gradient(180deg, #3388df 0%, #2368b1 100%);
   color: white;
   border-radius: 12px;
   padding: 11px 14px;
@@ -341,7 +344,7 @@ button {
 .primary-button:hover,
 .modal-actions button[type="submit"]:hover {
   transform: translateY(-1px);
-  background: linear-gradient(180deg, #2380c9 0%, #15588c 100%);
+  background: linear-gradient(180deg, #3b93ec 0%, #2a74c2 100%);
 }
 
 .ghost-button,
@@ -350,8 +353,8 @@ button {
 .tabs button,
 .modal-actions button[type="button"] {
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
-  color: #dce8f4;
+  background: rgba(255, 255, 255, 0.86);
+  color: #26415b;
   border-radius: 12px;
   padding: 10px 12px;
   font-weight: 600;
@@ -362,7 +365,7 @@ button {
 .full-width-button:hover,
 .tabs button:hover,
 .modal-actions button[type="button"]:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: #f2f7fc;
   border-color: var(--border-strong);
 }
 
@@ -414,9 +417,10 @@ button {
   padding: 18px;
   overflow: auto;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    radial-gradient(circle at center, rgba(54, 208, 180, 0.08), transparent 45%);
+    linear-gradient(rgba(40, 72, 104, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(40, 72, 104, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at center, rgba(80, 176, 255, 0.08), transparent 48%),
+    linear-gradient(180deg, #f7fbfe 0%, #edf4f9 100%);
   background-size: 22px 22px, 22px 22px, auto;
 }
 
@@ -439,7 +443,7 @@ button {
   width: 100%;
   padding: 14px 16px;
   border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(101, 127, 156, 0.1);
   background: transparent;
   text-align: left;
   color: var(--text);
@@ -454,7 +458,7 @@ button {
 .output-item:hover,
 .list-row.selected,
 .output-item.active {
-  background: rgba(80, 176, 255, 0.08);
+  background: rgba(47, 127, 216, 0.08);
 }
 
 .output-main {
@@ -476,7 +480,7 @@ button {
 }
 
 .run-workflow-name {
-  color: #92aac5;
+  color: #58728d;
   font-weight: 500;
   margin-left: 10px;
 }
@@ -517,15 +521,15 @@ button {
 }
 
 .trace-block {
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(101, 127, 156, 0.12);
   border-radius: 14px;
-  background: rgba(9, 16, 27, 0.52);
+  background: #fbfdff;
   overflow: hidden;
 }
 
 .trace-block-header {
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(101, 127, 156, 0.12);
 }
 
 .tabs {
@@ -535,9 +539,9 @@ button {
 }
 
 .tabs button.active {
-  background: rgba(80, 176, 255, 0.14);
-  border-color: rgba(80, 176, 255, 0.35);
-  color: #a9d8ff;
+  background: rgba(47, 127, 216, 0.12);
+  border-color: rgba(47, 127, 216, 0.28);
+  color: #286dbb;
 }
 
 .code-block {
@@ -548,8 +552,8 @@ button {
   font-family: Consolas, "SFMono-Regular", monospace;
   font-size: 12px;
   line-height: 1.55;
-  color: #dce6f3;
-  background: rgba(6, 12, 20, 0.78);
+  color: #213247;
+  background: #f5f8fc;
 }
 
 .empty-state {
@@ -561,7 +565,7 @@ button {
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(3, 8, 15, 0.68);
+  background: rgba(20, 37, 55, 0.18);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -571,9 +575,9 @@ button {
 
 .modal,
 .drawer {
-  background: linear-gradient(180deg, #132131 0%, #0d1723 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%);
   border: 1px solid var(--border-strong);
-  box-shadow: 0 36px 90px rgba(0, 0, 0, 0.46);
+  box-shadow: 0 36px 90px rgba(19, 37, 56, 0.18);
 }
 
 .modal {
@@ -594,7 +598,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #dce7f2;
+  color: #274059;
 }
 
 .modal input,
@@ -605,7 +609,7 @@ button {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 10px 12px;
-  background: rgba(4, 9, 16, 0.7);
+  background: #fbfdff;
   color: var(--text);
 }
 
