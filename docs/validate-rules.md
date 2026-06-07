@@ -67,5 +67,6 @@
 - `produces` 若存在，必须是非空字符串
 - `produces` 按相对 `outputs/` 解析
 - `produces` 不允许绝对路径、`..`
-- 多个节点不允许声明相同的 `produces`
+- 多个节点可以声明相同的 `produces`
+- 对同名 `produces`，运行时采用后写覆盖前写
 - `final_outputs` 中每个文件都必须至少被某个节点 `produces` 覆盖

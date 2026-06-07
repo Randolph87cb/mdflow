@@ -115,6 +115,7 @@ def execute_run(
     _seed_completed_nodes_from_outputs(
         run_dir=run_dir,
         trace_dir=trace_dir,
+        source_run_dir=source_run_dir,
         completed_nodes=state.completed_nodes,
         nodes_by_id=nodes_by_id,
         prefix_map=prefix_map,
@@ -523,6 +524,7 @@ def _seed_completed_nodes_from_outputs(
     *,
     run_dir: Path,
     trace_dir: Path,
+    source_run_dir: Path | None,
     completed_nodes: list[str],
     nodes_by_id: dict[str, NodeSpec],
     prefix_map: dict[str, str],
@@ -530,13 +532,17 @@ def _seed_completed_nodes_from_outputs(
     trace_lookup: dict[tuple[str, str], Path],
     runtime_results: dict[str, dict[str, Any]],
 ) -> None:
+    source_trace_dir = source_run_dir / "trace" if source_run_dir is not None else None
     for node_id in completed_nodes:
         node = nodes_by_id.get(node_id)
         if node is None:
             continue
         stdout_seed: Path | None = None
         stderr_seed = trace_dir / f"{prefix_map[node_id]}.attempt-00.stderr.txt"
-        if not stderr_seed.exists():
+        source_stderr = _find_latest_trace_stream(source_trace_dir, prefix_map[node_id], "stderr")
+        if source_stderr is not None:
+            shutil.copyfile(source_stderr, stderr_seed)
+        elif not stderr_seed.exists():
             stderr_seed.write_text("", encoding="utf-8")
         if node.produces and node.produces in state.outputs:
             output_path = run_dir / state.outputs[node.produces]
@@ -544,6 +550,13 @@ def _seed_completed_nodes_from_outputs(
             stdout_seed.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(output_path, stdout_seed)
             trace_lookup[(node_id, "stdout")] = stdout_seed
+        else:
+            source_stdout = _find_latest_trace_stream(source_trace_dir, prefix_map[node_id], "stdout")
+            if source_stdout is not None:
+                stdout_seed = trace_dir / f"{prefix_map[node_id]}.attempt-00.stdout.txt"
+                stdout_seed.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source_stdout, stdout_seed)
+                trace_lookup[(node_id, "stdout")] = stdout_seed
         trace_lookup[(node_id, "stderr")] = stderr_seed
         runtime_results[node_id] = {
             "status": "success",
@@ -552,6 +565,18 @@ def _seed_completed_nodes_from_outputs(
             "stderr_path": stderr_seed,
             "attempts": 0,
         }
+
+
+def _find_latest_trace_stream(source_trace_dir: Path | None, prefix: str, stream: str) -> Path | None:
+    if source_trace_dir is None or not source_trace_dir.is_dir():
+        return None
+    matches = sorted(source_trace_dir.glob(f"{prefix}.attempt-*.{stream}.txt"))
+    if matches:
+        return matches[-1]
+    legacy = source_trace_dir / f"{prefix}.{stream}.txt"
+    if legacy.exists():
+        return legacy
+    return None
 
 
 def _mark_node_completed(state: RunState, node_id: str) -> None:

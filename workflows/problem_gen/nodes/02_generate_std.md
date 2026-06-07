@@ -2,7 +2,7 @@
 id: generate_std
 type: llm
 produces: std.cpp
-next: generate_gen
+next: compile_std
 model:
   temperature: 0.2
 ---
@@ -17,6 +17,7 @@ model:
 2. 程序必须从标准输入读取、向标准输出写入。
 3. 程序必须稳定、清晰、可直接用于批量生成标准输出。
 4. 禁止使用平台相关扩展或额外文件。
+5. 请优先选择清晰直接的实现，不要故意压缩代码。
 
 题面：
 {{generate_statement.stdout}}

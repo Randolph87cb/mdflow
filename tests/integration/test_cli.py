@@ -225,6 +225,70 @@ class CliIntegrationTests(unittest.TestCase):
         (scripts_dir / "compile.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');a=p.parse_args();text=Path(a.src).read_text(encoding='utf-8');\nif 'fixed' in text:\n print('compile success')\n raise SystemExit(0)\nraise SystemExit('compile error')\n", encoding="utf-8")
         (scripts_dir / "package.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');p.add_argument('--out');a=p.parse_args();text=Path(a.src).read_text(encoding='utf-8');Path(a.out).write_text(f'packaged:{text}', encoding='utf-8');print('packaged')\n", encoding="utf-8")
 
+    def _write_trace_seed_workflow(self, project_root: Path) -> None:
+        workflows_dir = project_root / "workflows" / "trace_seed_demo"
+        nodes_dir = workflows_dir / "nodes"
+        scripts_dir = workflows_dir / "scripts"
+        inputs_dir = workflows_dir / "inputs"
+        nodes_dir.mkdir(parents=True)
+        scripts_dir.mkdir(parents=True)
+        inputs_dir.mkdir(parents=True)
+        (workflows_dir / "workflow.md").write_text(
+            "---\n"
+            "id: trace_seed_demo\n"
+            "entry: seed_source\n"
+            "final_outputs:\n"
+            "  - source.txt\n"
+            "  - final.txt\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (inputs_dir / "default.md").write_text("demo\n", encoding="utf-8")
+        (nodes_dir / "01_seed_source.md").write_text(
+            "---\n"
+            "id: seed_source\n"
+            "type: script\n"
+            "next: capture_source\n"
+            "produces: source.txt\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/seed.py\", \"--out\", \"outputs/source.txt\", \"--content\", \"from-seed\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "02_capture_source.md").write_text(
+            "---\n"
+            "id: capture_source\n"
+            "type: script\n"
+            "next: package\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/dump.py\", \"--src\", \"outputs/source.txt\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "03_package.md").write_text(
+            "---\n"
+            "id: package\n"
+            "type: script\n"
+            "next: null\n"
+            "produces: final.txt\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/package_from_trace.py\", \"--src\", \"{{capture_source.stdout}}\", \"--out\", \"outputs/final.txt\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (scripts_dir / "seed.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--out');p.add_argument('--content');a=p.parse_args();Path(a.out).write_text(a.content, encoding='utf-8');print(a.content)\n", encoding="utf-8")
+        (scripts_dir / "dump.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');a=p.parse_args();print(Path(a.src).read_text(encoding='utf-8'))\n", encoding="utf-8")
+        (scripts_dir / "package_from_trace.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');p.add_argument('--out');a=p.parse_args();text=Path(a.src).read_text(encoding='utf-8');Path(a.out).write_text(f'trace:{text.strip()}', encoding='utf-8');print('packaged')\n", encoding="utf-8")
+
     def test_run_success_show_and_cat(self) -> None:
         project_root = self._make_project_copy()
         result = self._run_cli(project_root, "run", "problem_gen", "--input", "workflows/problem_gen/inputs/default.md", "--run-id", "test-run")
@@ -272,7 +336,7 @@ class CliIntegrationTests(unittest.TestCase):
             "print('late')\n",
             encoding="utf-8",
         )
-        node_path = project_root / "workflows" / "problem_gen" / "nodes" / "04_package_data.md"
+        node_path = project_root / "workflows" / "problem_gen" / "nodes" / "13_package_data.md"
         node_path.write_text(node_path.read_text(encoding="utf-8").replace("timeout_sec: 300", "timeout_sec: 1"), encoding="utf-8")
         result = self._run_cli(project_root, "run", "problem_gen", "--input", "workflows/problem_gen/inputs/default.md", "--run-id", "timeout-run")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
@@ -323,6 +387,19 @@ class CliIntegrationTests(unittest.TestCase):
         self.assertEqual(rerun_meta["source_run_id"], "rerun-fail")
         self.assertEqual(rerun_meta["rerun_from_node"], "compile_source")
         self.assertEqual(failed_state["status"], "failed")
+
+    def test_rerun_seeds_non_produced_trace_dependencies(self) -> None:
+        project_root = self._make_project_copy()
+        self._write_trace_seed_workflow(project_root)
+
+        first = self._run_cli(project_root, "run", "trace_seed_demo", "--input", "workflows/trace_seed_demo/inputs/default.md", "--run-id", "trace-seed-1")
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+
+        rerun = self._run_cli(project_root, "rerun", "runs/trace_seed_demo/trace-seed-1", "--from", "package", "--run-id", "trace-seed-2")
+        self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
+
+        rerun_dir = project_root / "runs" / "trace_seed_demo" / "trace-seed-2"
+        self.assertEqual((rerun_dir / "outputs" / "final.txt").read_text(encoding="utf-8"), "trace:from-seed")
 
 
 if __name__ == "__main__":

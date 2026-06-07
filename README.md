@@ -11,7 +11,7 @@
 - 支持 `router` 分支节点
 - 支持节点级自动重试
 - 支持 `mdflow rerun --from <node_id>` 从失败节点发起新 run
-- 示例 `problem_gen` 可产出 `题面.md`、`std.cpp`、`gen.cpp`、`data.zip`
+- 示例 `problem_gen` 已演示“生成 -> 编译检查 -> 路由修复 -> 继续执行”的二阶段闭环，并可产出 `题面.md`、`std.cpp`、`gen.cpp`、`data.zip`
 
 ## Micu API 配置
 

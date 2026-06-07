@@ -66,6 +66,11 @@ rerun 时，来源信息会填入：
 - `node_attempts`
 - `last_failure`
 
+补充语义：
+
+- `outputs` 记录的是当前 run 下最终输出文件名到实际路径的最新映射
+- 如果多个节点声明同一个 `produces`，这里保留最后一次成功落盘后的结果
+
 ## `trace.json`
 
 定位：结构化事件时间线。

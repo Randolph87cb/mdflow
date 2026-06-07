@@ -62,6 +62,14 @@
 - `router` 节点：
   不允许声明 `produces`
 
+二阶段允许多个节点声明同一个 `produces`。
+
+语义：
+
+- 后执行的节点会覆盖 `outputs/<produces>` 中已有的同名文件
+- 这适合 `generate_std -> fix_std -> compile_std` 这类“生成后再修复”的闭环
+- rerun 时，新 run 会从旧 run 已落盘的 `outputs/` 继续
+
 ## 节点引用规则
 
 统一使用双花括号语法引用节点输出：

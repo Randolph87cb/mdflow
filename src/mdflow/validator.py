@@ -84,7 +84,7 @@ def validate_workflow_bundle(config: ProjectConfig, bundle: WorkflowBundle) -> l
     if not nodes:
         errors.append("nodes/: expected at least one node file")
     seen_ids: set[str] = set()
-    produces_seen: dict[str, str] = {}
+    produces_seen: dict[str, list[str]] = {}
     for node in nodes:
         _validate_node(config, workflow, node, nodes_by_id, errors, seen_ids, produces_seen)
 
@@ -127,7 +127,7 @@ def _validate_node(
     nodes_by_id: dict[str, NodeSpec],
     errors: list[str],
     seen_ids: set[str],
-    produces_seen: dict[str, str],
+    produces_seen: dict[str, list[str]],
 ) -> None:
     location = node.path.relative_to(workflow.workflow_dir.parent.parent)
     if not node.id:
@@ -157,10 +157,7 @@ def _validate_node(
             ensure_relative_output_path(node.produces, label="produces")
         except ValueError as exc:
             errors.append(f"{location}: {exc}")
-        if node.produces in produces_seen:
-            errors.append(f"{location}: produces '{node.produces}' duplicated by node '{produces_seen[node.produces]}'")
-        else:
-            produces_seen[node.produces] = node.id
+        produces_seen.setdefault(node.produces, []).append(node.id)
     if node.type == "llm":
         if not node.body.strip():
             errors.append(f"{location}: llm node body must not be empty")

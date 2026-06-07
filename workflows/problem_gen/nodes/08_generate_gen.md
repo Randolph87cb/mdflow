@@ -2,7 +2,7 @@
 id: generate_gen
 type: llm
 produces: gen.cpp
-next: package_data
+next: compile_gen
 model:
   temperature: 0.2
 ---
@@ -23,4 +23,4 @@ model:
 {{generate_statement.stdout}}
 
 标准程序：
-{{generate_std.stdout}}
+{{capture_std_ready.stdout}}

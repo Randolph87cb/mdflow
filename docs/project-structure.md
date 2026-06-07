@@ -1,6 +1,6 @@
 # 项目目录规范
 
-本文档固定 `mdflow` 一阶段的项目结构。
+本文档固定 `mdflow` 当前阶段的项目结构。
 
 ## 推荐结构
 
@@ -46,9 +46,20 @@ mdflow-project/
       nodes/
         01_generate_statement.md
         02_generate_std.md
-        03_generate_gen.md
-        04_package_data.md
+        03_compile_std.md
+        04_route_std_compile.md
+        05_capture_std_source.md
+        06_fix_std.md
+        07_capture_std_ready.md
+        08_generate_gen.md
+        09_compile_gen.md
+        10_route_gen_compile.md
+        11_capture_gen_source.md
+        12_fix_gen.md
+        13_package_data.md
       scripts/
+        compile_cpp.py
+        dump_text_file.py
         package_data.py
       inputs/
         default.md
@@ -107,6 +118,13 @@ Python 核心控制层，负责：
 
 其中 `data.zip` 内包含 25 组平铺的 `.in` / `.out`。
 
+同时 `problem_gen` 也是当前二阶段能力示例，演示：
+
+- `router` 条件分支
+- `retry.max_attempts`
+- 修复节点覆盖同名输出文件
+- 失败后可用 `rerun --from <node_id>` 从指定节点重跑
+
 ## 单次运行结构
 
 ```text
@@ -120,20 +138,27 @@ runs/
         trace.json
         00_initial.stdout.txt
 
-        01_generate_statement.prompt.txt
-        01_generate_statement.stdout.txt
-        01_generate_statement.stderr.txt
+        01_generate_statement.attempt-01.prompt.txt
+        01_generate_statement.attempt-01.stdout.txt
+        01_generate_statement.attempt-01.stderr.txt
 
-        02_generate_std.prompt.txt
-        02_generate_std.stdout.txt
-        02_generate_std.stderr.txt
+        02_generate_std.attempt-01.prompt.txt
+        02_generate_std.attempt-01.stdout.txt
+        02_generate_std.attempt-01.stderr.txt
 
-        03_generate_gen.prompt.txt
-        03_generate_gen.stdout.txt
-        03_generate_gen.stderr.txt
+        03_compile_std.attempt-01.stdout.txt
+        03_compile_std.attempt-01.stderr.txt
 
-        04_package_data.stdout.txt
-        04_package_data.stderr.txt
+        06_fix_std.attempt-01.prompt.txt
+        06_fix_std.attempt-01.stdout.txt
+        06_fix_std.attempt-01.stderr.txt
+
+        08_generate_gen.attempt-01.prompt.txt
+        08_generate_gen.attempt-01.stdout.txt
+        08_generate_gen.attempt-01.stderr.txt
+
+        13_package_data.attempt-01.stdout.txt
+        13_package_data.attempt-01.stderr.txt
 
       outputs/
         题面.md
