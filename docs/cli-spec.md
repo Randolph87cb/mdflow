@@ -25,8 +25,8 @@ mdflow run problem_gen --input workflows/problem_gen/inputs/default.md --run-id 
 ## `mdflow rerun`
 
 ```powershell
-mdflow rerun runs/problem_gen/2026-06-07_12-30-00 --from compile_std
-mdflow rerun runs/problem_gen/2026-06-07_12-30-00 --from compile_std --run-id rerun-1
+mdflow rerun runs/problem_gen/2026-06-07_12-30-00 --from build_and_run_std
+mdflow rerun runs/problem_gen/2026-06-07_12-30-00 --from build_and_run_std --run-id rerun-1
 ```
 
 语义：

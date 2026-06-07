@@ -20,19 +20,11 @@
 ```text
 生成 C++
   ↓
-编译
+编译 + 最小样例运行检查
   ↓
-根据编译结果决定：
-  成功 → 运行
+根据检查结果决定：
+  成功 → 生成数据生成器 / 打包
   失败 → 修复
-```
-
-```text
-运行
-  ↓
-根据运行结果决定：
-  成功 → 打包
-  失败 → 分析 / 修复
 ```
 
 ```text
@@ -228,48 +220,52 @@ when:
 推荐拆成这样的节点链：
 
 ```text
+generate_statement
+  ↓
 generate_std
   ↓
-compile_std
+build_and_run_std
   ↓
-route_compile
-  ├─ success → run_std
+route_std_result
+  ├─ success → generate_gen
   └─ failed  → fix_std
 
 fix_std
   ↓
-compile_std
+build_and_run_std
 
-run_std
+generate_gen
   ↓
-route_run
-  ├─ success → package
-  └─ failed  → analyze_run_error
-
-analyze_run_error
-  ↓
-fix_std
+package_data
 ```
 
-示例中的 `compile_std`：
+当前 `problem_gen` 示例就采用这条精简链。
+
+示例中的 `build_and_run_std`：
 
 ```md
 ---
-id: compile_std
+id: build_and_run_std
 type: script
-next: route_compile
+next: route_std_result
 retry:
-  max_attempts: 3
+  max_attempts: 2
 exec:
   program: python
   args:
-    - scripts/compile_std.py
+    - scripts/build_and_run_cpp.py
     - --src
     - outputs/std.cpp
-  cwd: outputs
-  timeout_sec: 300
+    - --label
+    - std.cpp
+    - --statement
+    - outputs/题面.md
+  cwd: .
+  timeout_sec: 120
 ---
 ```
+
+这里把“编译”和“最小样例运行检查”合并到了一个节点里，避免 workflow 被拆得过碎。
 
 ## 运行时行为
 
@@ -303,11 +299,26 @@ exec:
 
 建议为每次尝试单独落盘 trace 文件，文件名带 attempt 编号：
 
-- `02_compile_std.attempt-01.stdout.txt`
-- `02_compile_std.attempt-01.stderr.txt`
-- `02_compile_std.attempt-02.stdout.txt`
+- `03_build_and_run_std.attempt-01.stdout.txt`
+- `03_build_and_run_std.attempt-01.stderr.txt`
+- `03_build_and_run_std.attempt-02.stdout.txt`
 
 这样不会覆盖之前的失败证据。
+
+## 当前文件引用补充
+
+二阶段示例里，为了避免再引入额外的“capture”节点，`llm` 正文现在允许直接读取 run 内文件：
+
+```text
+{{file:outputs/std.cpp}}
+```
+
+适用场景：
+
+- 修复节点直接读取当前 `outputs/std.cpp`
+- 后续生成节点直接读取当前 `outputs/std.cpp`
+
+这样 workflow 可以保持更薄，不需要专门加“把文件内容重新打印到 stdout 再引用”的中转节点。
 
 ## rerun 设计
 
@@ -338,10 +349,10 @@ mdflow rerun <run_dir> --from <node_id>
 4. 执行：
 
 ```bash
-mdflow rerun runs/problem_gen/2026-06-07_12-30-00 --from compile_std
+mdflow rerun runs/problem_gen/2026-06-07_12-30-00 --from build_and_run_std
 ```
 
-5. 系统创建一个新 run，从 `compile_std` 继续
+5. 系统创建一个新 run，从 `build_and_run_std` 继续
 
 ## 状态文件扩展建议
 

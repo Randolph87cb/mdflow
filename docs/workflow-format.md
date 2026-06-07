@@ -104,3 +104,34 @@ final_outputs:
 
 这里写工作流说明、节点概览和使用方法。
 ```
+
+## 当前 `problem_gen` 示例
+
+当前仓库中的 `problem_gen` 是一个二阶段精简示例，节点链为：
+
+```text
+generate_statement
+  ↓
+generate_std
+  ↓
+build_and_run_std
+  ↓
+route_std_result
+  ├─ success → generate_gen
+  └─ failed  → fix_std
+
+fix_std
+  ↓
+build_and_run_std
+
+generate_gen
+  ↓
+package_data
+```
+
+这个示例同时演示：
+
+- `router` 分支
+- `retry.max_attempts`
+- 同名 `produces` 的后写覆盖
+- `rerun --from <node_id>`
