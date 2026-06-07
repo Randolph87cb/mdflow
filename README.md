@@ -14,6 +14,24 @@
 
 真实调用 Micu 时，使用环境变量配置，不把密钥写入仓库：
 
+推荐做法是在项目根目录新建 `.env`，仓库里已经提供了 [.env.example](.env.example)：
+
+```dotenv
+MICU_API_KEY=your-micu-api-key
+MICU_API_BASE_URL=https://www.micuapi.ai/v1
+PYTHONUTF8=1
+```
+
+你可以直接复制：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+`mdflow` 在启动时会自动读取项目根目录的 `.env`。如果系统环境变量里已经存在同名配置，则优先使用系统环境变量。
+
+也可以临时在 PowerShell 里设置：
+
 ```powershell
 $env:MICU_API_KEY = "your-api-key"
 $env:MICU_API_BASE_URL = "https://www.micuapi.ai/v1"

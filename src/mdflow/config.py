@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ def find_project_root(start: Path) -> Path:
 
 
 def load_project_config(project_root: Path) -> ProjectConfig:
+    load_project_env(project_root)
     config_path = project_root / "mdflow.yaml"
     data = _load_yaml_file(config_path)
     return ProjectConfig(
@@ -28,6 +30,28 @@ def load_project_config(project_root: Path) -> ProjectConfig:
         providers={str(k): _as_dict(v) for k, v in _as_dict(data.get("providers")).items()},
         project_root=project_root,
     )
+
+
+def load_project_env(project_root: Path) -> None:
+    env_path = project_root / ".env"
+    if not env_path.is_file():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if not key:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
 
 
 def _load_yaml_file(path: Path) -> dict[str, Any]:

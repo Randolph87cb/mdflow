@@ -1,6 +1,10 @@
 .venv/
 __pycache__/
 *.pyc
+.env
+.env.local
+.env.*
+!.env.example
 
 runs/*
 !runs/.gitkeep
