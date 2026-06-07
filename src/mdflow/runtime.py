@@ -95,13 +95,7 @@ def rerun_workflow(
     snapshot_dir = create_workflow_snapshot(workflow_dir, run_dir)
     snapshot_bundle, snapshot_catalog = load_and_validate_workflow(config, snapshot_dir)
 
-    node_order = {node.id: index for index, node in enumerate(snapshot_catalog)}
-    start_index = node_order[from_node]
-    initial_completed_nodes = [
-        node_id
-        for node_id in old_state.get("completed_nodes", [])
-        if node_id in node_order and node_order[node_id] < start_index
-    ]
+    initial_completed_nodes = derive_rerun_completed_nodes(old_state, from_node)
 
     return execute_run(
         config=config,
@@ -160,3 +154,16 @@ def validate_or_generate_run_id(run_id: str | None) -> str:
     if not RUN_ID_PATTERN.fullmatch(final_run_id):
         raise CliUsageError("run id must contain only letters, numbers, underscores, and hyphens")
     return final_run_id
+
+
+def derive_rerun_completed_nodes(old_state: dict[str, object], from_node: str) -> list[str]:
+    completed_nodes = [str(node_id) for node_id in old_state.get("completed_nodes", [])]
+    if from_node in completed_nodes:
+        cutoff = completed_nodes.index(from_node)
+        return completed_nodes[:cutoff]
+    current_node = str(old_state.get("current_node") or "")
+    last_failure = old_state.get("last_failure", {})
+    failed_node = str(last_failure.get("node_id") or "") if isinstance(last_failure, dict) else ""
+    if from_node == current_node or from_node == failed_node:
+        return completed_nodes
+    return []

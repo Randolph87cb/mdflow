@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { NodeInspector } from "../components/NodeInspector";
 import { OutputBrowser } from "../components/OutputBrowser";
@@ -17,18 +17,31 @@ export function RunDetailPage() {
   const [selectedOutput, setSelectedOutput] = useState<string | null>(null);
   const [outputPreview, setOutputPreview] = useState<OutputPreviewType | null>(null);
   const [selectedOutputs, setSelectedOutputs] = useState<string[]>([]);
+  const autoFocusedFailureRef = useRef<string | null>(null);
 
   async function loadRun() {
     const nextDetail = await studioApi.getRun(workflowId, runId);
     setDetail(nextDetail);
-    const defaultNode =
+    const candidateNode =
       nextDetail.state.last_failure?.node_id ||
       nextDetail.state.current_node ||
       nextDetail.state.completed_nodes?.[nextDetail.state.completed_nodes.length - 1] ||
       nextDetail.graph.nodes[0]?.id ||
       null;
-    if (defaultNode && defaultNode !== selectedNodeId) {
-      setSelectedNodeId(defaultNode);
+    const nodeIds = new Set(nextDetail.graph.nodes.map((node) => node.id));
+    if (!selectedNodeId || !nodeIds.has(selectedNodeId)) {
+      if (candidateNode) {
+        setSelectedNodeId(candidateNode);
+      }
+      return;
+    }
+    const failedNode = nextDetail.state.last_failure?.node_id || null;
+    if (failedNode && autoFocusedFailureRef.current !== failedNode) {
+      autoFocusedFailureRef.current = failedNode;
+      setSelectedNodeId(failedNode);
+    }
+    if (!failedNode) {
+      autoFocusedFailureRef.current = null;
     }
   }
 
@@ -54,10 +67,16 @@ export function RunDetailPage() {
   useEffect(() => {
     if (detail?.state.status !== "running") return;
     const timer = window.setInterval(() => {
-      loadRun().catch(console.error);
+      loadRun()
+        .then(async () => {
+          if (selectedNodeId) {
+            setNodeData(await studioApi.getRunNode(workflowId, runId, selectedNodeId));
+          }
+        })
+        .catch(console.error);
     }, 2000);
     return () => window.clearInterval(timer);
-  }, [detail?.state.status, workflowId, runId]);
+  }, [detail?.state.status, runId, selectedNodeId, workflowId]);
 
   const downloadHref = useMemo(
     () => (selectedOutput ? studioApi.downloadOutput(workflowId, runId, selectedOutput) : null),

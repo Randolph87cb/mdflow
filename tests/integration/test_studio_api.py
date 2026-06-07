@@ -49,6 +49,9 @@ class StudioApiIntegrationTests(unittest.TestCase):
         self.assertTrue(graph_payload["nodes"])
         self.assertTrue(graph_payload["edges"])
 
+        missing_api = client.get("/api/not-a-real-route")
+        self.assertEqual(missing_api.status_code, 404)
+
     def test_create_run_uses_snapshot_and_input_md(self) -> None:
         project_root = self._make_project_copy()
         client = TestClient(create_app(project_root))

@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type Props = {
   open: boolean;
@@ -11,6 +11,12 @@ type Props = {
 
 export function NodeEditorDrawer({ open, workflowId, nodeId, initialContent, onClose, onSave }: Props) {
   const [content, setContent] = useState(initialContent);
+
+  useEffect(() => {
+    if (open) {
+      setContent(initialContent);
+    }
+  }, [open, nodeId, initialContent]);
 
   if (!open || !nodeId) return null;
 

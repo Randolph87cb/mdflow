@@ -13,20 +13,34 @@ mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "neutral
 
 export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const nodeIdMap = useMemo(() => {
+    const map = new Map<string, string>();
+    nodes.forEach((node, index) => {
+      map.set(node.id, `node_${index}`);
+    });
+    return map;
+  }, [nodes]);
+  const renderedIdToNodeId = useMemo(() => {
+    return new Map<string, string>(Array.from(nodeIdMap.entries(), ([nodeId, renderedId]) => [renderedId, nodeId]));
+  }, [nodeIdMap]);
   const graphDef = useMemo(() => {
     const lines = ["flowchart LR"];
     for (const node of nodes) {
       const label = sanitizeNodeLabel(`${node.id}\\n${node.type}${node.status ? `\\n${node.status}` : ""}`);
-      lines.push(`  ${safe(node.id)}["${label}"]`);
+      lines.push(`  ${nodeIdMap.get(node.id)}["${label}"]`);
     }
     for (const edge of edges) {
       const arrow = edge.kind === "route" || edge.kind === "default" ? "-->" : "-->";
       const edgeText = edge.kind === "default" ? "default" : edge.kind === "route" ? "route" : "";
       const label = edgeText ? `|${edgeText}|` : "";
-      lines.push(`  ${safe(edge.from)} ${arrow}${label} ${safe(edge.to)}`);
+      const fromId = nodeIdMap.get(edge.from);
+      const toId = nodeIdMap.get(edge.to);
+      if (fromId && toId) {
+        lines.push(`  ${fromId} ${arrow}${label} ${toId}`);
+      }
     }
     return lines.join("\n");
-  }, [edges, nodes]);
+  }, [edges, nodeIdMap, nodes]);
 
   useEffect(() => {
     let disposed = false;
@@ -37,10 +51,14 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
         containerRef.current.innerHTML = svg;
         const root = containerRef.current;
         root.querySelectorAll(".node").forEach((element) => {
-          const nodeId = (element as SVGGElement).id.replace(/^flowchart-/, "");
+          const renderedNodeId = (element as SVGGElement).id.replace(/^flowchart-/, "");
+          const nodeId = renderedIdToNodeId.get(renderedNodeId);
+          if (!nodeId) {
+            return;
+          }
           (element as HTMLElement).style.cursor = "pointer";
           element.addEventListener("click", () => onSelectNode?.(nodeId));
-          if (selectedNodeId && nodeId.endsWith(safe(selectedNodeId))) {
+          if (selectedNodeId === nodeId) {
             (element as HTMLElement).classList.add("graph-node-selected");
           }
         });
@@ -54,13 +72,9 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
     return () => {
       disposed = true;
     };
-  }, [graphDef, onSelectNode, selectedNodeId]);
+  }, [graphDef, onSelectNode, renderedIdToNodeId, selectedNodeId]);
 
   return <div className="graph-panel" ref={containerRef} />;
-}
-
-function safe(value: string) {
-  return value.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
 function sanitizeNodeLabel(value: string) {
