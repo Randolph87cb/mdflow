@@ -43,6 +43,12 @@ class StudioApiIntegrationTests(unittest.TestCase):
         workflow_ids = {item["workflow_id"] for item in workflows.json()}
         self.assertIn("problem_gen", workflow_ids)
 
+        graph = client.get("/api/workflows/problem_gen/graph")
+        self.assertEqual(graph.status_code, 200)
+        graph_payload = graph.json()
+        self.assertTrue(graph_payload["nodes"])
+        self.assertTrue(graph_payload["edges"])
+
     def test_create_run_uses_snapshot_and_input_md(self) -> None:
         project_root = self._make_project_copy()
         client = TestClient(create_app(project_root))
@@ -125,6 +131,38 @@ class StudioApiIntegrationTests(unittest.TestCase):
 
         bad_output = client.get("/api/workflows/problem_gen/runs/studio-run-secure/outputs/..%2Fmeta.json")
         self.assertEqual(bad_output.status_code, 400)
+
+    def test_run_node_detail_and_rerun_endpoint(self) -> None:
+        project_root = self._make_project_copy()
+        client = TestClient(create_app(project_root))
+
+        create = client.post(
+            "/api/workflows/problem_gen/runs",
+            json={
+                "input_mode": "file",
+                "input_file": "workflows/problem_gen/inputs/default.md",
+                "run_name": "studio-run-rerun-src",
+            },
+        )
+        self.assertEqual(create.status_code, 200, create.text)
+
+        node_detail = client.get("/api/workflows/problem_gen/runs/studio-run-rerun-src/nodes/generate_std")
+        self.assertEqual(node_detail.status_code, 200, node_detail.text)
+        payload = node_detail.json()
+        self.assertEqual(payload["node"]["id"], "generate_std")
+        self.assertIn("workflow_snapshot", payload["source"]["path"])
+        self.assertIn("##", payload["trace"]["input"])
+
+        rerun = client.post(
+            "/api/workflows/problem_gen/runs/studio-run-rerun-src/rerun",
+            json={"from_node": "generate_gen", "run_name": "studio-run-rerun-dst"},
+        )
+        self.assertEqual(rerun.status_code, 200, rerun.text)
+        rerun_dir = project_root / "runs" / "problem_gen" / "studio-run-rerun-dst"
+        self.assertTrue((rerun_dir / "workflow_snapshot" / "workflow.md").is_file())
+        rerun_meta = json.loads((rerun_dir / "meta.json").read_text(encoding="utf-8"))
+        self.assertEqual(rerun_meta["source_run_id"], "studio-run-rerun-src")
+        self.assertEqual(rerun_meta["rerun_from_node"], "generate_gen")
 
 
 if __name__ == "__main__":

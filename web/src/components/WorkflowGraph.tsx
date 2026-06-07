@@ -16,12 +16,13 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
   const graphDef = useMemo(() => {
     const lines = ["flowchart LR"];
     for (const node of nodes) {
-      const label = `${node.id}\\n${node.type}${node.status ? `\\n${node.status}` : ""}`;
+      const label = sanitizeNodeLabel(`${node.id}\\n${node.type}${node.status ? `\\n${node.status}` : ""}`);
       lines.push(`  ${safe(node.id)}["${label}"]`);
     }
     for (const edge of edges) {
       const arrow = edge.kind === "route" || edge.kind === "default" ? "-->" : "-->";
-      const label = edge.label ? `|${edge.label}|` : "";
+      const edgeText = edge.kind === "default" ? "default" : edge.kind === "route" ? "route" : "";
+      const label = edgeText ? `|${edgeText}|` : "";
       lines.push(`  ${safe(edge.from)} ${arrow}${label} ${safe(edge.to)}`);
     }
     return lines.join("\n");
@@ -60,4 +61,8 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
 
 function safe(value: string) {
   return value.replace(/[^A-Za-z0-9_]/g, "_");
+}
+
+function sanitizeNodeLabel(value: string) {
+  return value.replace(/"/g, '\\"');
 }
