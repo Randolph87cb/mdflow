@@ -18,6 +18,12 @@ mdflow-project/
 
   docs/
     project-structure.md
+    node-format.md
+    workflow-format.md
+    project-config-format.md
+    run-files-format.md
+    cli-spec.md
+    validate-rules.md
 
   src/
     mdflow/
@@ -74,14 +80,16 @@ Python 项目入口配置。
 ### `mdflow.yaml`
 
 项目级配置文件。  
-一阶段先只放轻量全局配置，例如：
+一阶段放项目级默认配置，例如：
 
 - 项目名
 - `workflows` 根目录
 - `runs` 根目录
 - 默认工作流
+- 默认模型配置
+- provider 注册表
 
-后续再扩展 provider、模型默认值、环境变量映射等。
+详细字段规则见 [project-config-format.md](project-config-format.md)。
 
 ## 核心源码层
 
@@ -155,13 +163,15 @@ Python 源码根目录。
 工作流总说明文件。  
 一阶段职责是描述：
 
-- 工作流名称
+- 工作流标识
 - 入口节点
 - 整体说明
-- Mermaid 流程图
 - 工作流默认模型配置
+- 最终交付物声明
 
-Mermaid 目前只用于展示，不作为执行源。
+正文只用于说明，不作为执行源。Mermaid 可以写，但只用于展示。
+
+详细字段规则见 [workflow-format.md](workflow-format.md)。
 
 ### `nodes/`
 
@@ -172,11 +182,13 @@ Mermaid 目前只用于展示，不作为执行源。
 
 - `id`
 - `type`
-- `uses`
-- `produces`
 - `next`
+- `produces`
 - 节点级模型配置（仅 `llm` 节点需要）
+- `exec`（仅 `script` 节点需要）
 - prompt 正文或脚本说明
+
+节点字段、模板引用和 `script` 执行参数的详细规则，见 [node-format.md](node-format.md)。
 
 ### `scripts/`
 
@@ -212,29 +224,25 @@ runs/
 
       trace/
         trace.json
-        00_initial.txt
+        00_initial.stdout.txt
 
-        01_generate_statement.input.txt
         01_generate_statement.prompt.txt
-        01_generate_statement.output.txt
+        01_generate_statement.stdout.txt
+        01_generate_statement.stderr.txt
 
-        02_generate_solution.input.txt
         02_generate_solution.prompt.txt
-        02_generate_solution.output.txt
+        02_generate_solution.stdout.txt
+        02_generate_solution.stderr.txt
 
-        03_generate_cpp.input.txt
         03_generate_cpp.prompt.txt
-        03_generate_cpp.output.txt
+        03_generate_cpp.stdout.txt
+        03_generate_cpp.stderr.txt
 
-        04_run_cpp.input.txt
         04_run_cpp.stdout.txt
         04_run_cpp.stderr.txt
-        04_run_cpp.output.txt
 
-        05_package.input.txt
         05_package.stdout.txt
         05_package.stderr.txt
-        05_package.output.txt
 
       outputs/
         statement.md
@@ -250,10 +258,8 @@ runs/
 职责是保存调试和复盘所需的证据，包括：
 
 - 初始输入
-- 节点输入
 - 渲染后的 prompt
-- LLM 输出
-- 脚本 stdout/stderr
+- 每个节点的 stdout/stderr
 - 结构化事件日志
 
 ### `outputs/`
@@ -275,15 +281,19 @@ runs/
 ### `state.json`
 
 运行状态文件。  
-一阶段建议只保存路径映射，不直接内嵌大文本，例如：
+一阶段建议只保存轻量状态，不直接内嵌大文本。建议至少包含：
 
-- `slots.<slot_name> -> trace/...`
+- 当前节点
+- 运行状态
+- 已完成节点列表
 - `outputs.<output_name> -> outputs/...`
 
 ### `trace.json`
 
 事件时间线文件。  
 用于记录节点开始、结束、成功、失败等摘要事件，不承担大文本承载职责。
+
+`meta.json`、`state.json`、`trace.json` 的详细格式见 [run-files-format.md](run-files-format.md)。
 
 ## 结构原则
 

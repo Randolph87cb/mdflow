@@ -1,11 +1,13 @@
 ---
 id: generate_statement
 type: llm
-uses: [initial]
-produces: statement
+produces: statement.md
 next: generate_solution
 ---
 
 # Generate Statement
 
-后续在这里填写题面生成节点的 prompt。
+请根据下面输入生成一道完整题面。
+
+输入：
+{{initial.stdout}}

@@ -1,12 +1,20 @@
 ---
 id: run_cpp
 type: script
-uses: [cpp_code]
-produces: run_result
+produces: run_result.txt
 next: package
-cmd: python scripts/run_cpp.py
+exec:
+  program: python
+  args:
+    - scripts/run_cpp.py
+    - --src
+    - outputs/std.cpp
+    - --out
+    - outputs/run_result.txt
+  cwd: outputs
+  timeout_sec: 300
 ---
 
 # Run C++
 
-后续在这里补充本地编译运行节点的说明。
+读取 `outputs/std.cpp` 并生成运行结果。

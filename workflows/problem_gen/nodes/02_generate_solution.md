@@ -1,11 +1,13 @@
 ---
 id: generate_solution
 type: llm
-uses: [statement]
-produces: solution
+produces: solution.md
 next: generate_cpp
 ---
 
 # Generate Solution
 
-后续在这里填写解法设计节点的 prompt。
+请根据下面题面生成题解与做法说明。
+
+题面：
+{{generate_statement.stdout}}

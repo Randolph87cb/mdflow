@@ -1,11 +1,26 @@
 ---
 id: package
 type: script
-uses: [statement, solution, cpp_code, run_result]
-produces: package_result
-cmd: python scripts/package.py
+produces: package.json
+next: null
+exec:
+  program: python
+  args:
+    - scripts/package.py
+    - --statement
+    - outputs/statement.md
+    - --solution
+    - outputs/solution.md
+    - --code
+    - outputs/std.cpp
+    - --run-result
+    - outputs/run_result.txt
+    - --out
+    - outputs/package.json
+  cwd: outputs
+  timeout_sec: 300
 ---
 
 # Package Outputs
 
-后续在这里补充 outputs 打包节点的说明。
+读取最终输出文件并生成 `package.json`。

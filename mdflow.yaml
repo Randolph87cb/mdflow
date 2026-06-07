@@ -1,4 +1,16 @@
 name: mdflow-project
-runs_dir: runs
 workflows_dir: workflows
+runs_dir: runs
 default_workflow: problem_gen
+model:
+  provider: mock
+  model: mock-llm
+  temperature: 0.7
+  max_tokens: 4000
+providers:
+  mock:
+    type: mock
+  openai_main:
+    type: openai_compatible
+    base_url_env: OPENAI_BASE_URL
+    api_key_env: OPENAI_API_KEY
