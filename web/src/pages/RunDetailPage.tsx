@@ -82,6 +82,14 @@ export function RunDetailPage() {
     () => (selectedOutput ? studioApi.downloadOutput(workflowId, runId, selectedOutput) : null),
     [runId, selectedOutput, workflowId],
   );
+  const selectedGraphNode = useMemo(
+    () => detail?.graph.nodes.find((node) => node.id === selectedNodeId) ?? null,
+    [detail?.graph.nodes, selectedNodeId],
+  );
+  const failedNodeId = detail?.state.last_failure?.node_id ?? null;
+  const traceSubtitle = selectedGraphNode
+    ? `${selectedGraphNode.id} · ${selectedGraphNode.type}${selectedGraphNode.status ? ` · ${selectedGraphNode.status}` : ""}`
+    : "Execution evidence for the selected node.";
 
   return (
     <div className="page run-detail-page">
@@ -92,7 +100,12 @@ export function RunDetailPage() {
           status={detail.state.status}
           currentNode={detail.state.current_node}
           startedAt={detail.meta.started_at}
+          finishedAt={detail.meta.finished_at}
           snapshotDir={detail.snapshot_dir}
+          sourceRunId={detail.meta.source_run_id}
+          rerunFromNode={detail.meta.rerun_from_node}
+          completedCount={detail.state.completed_nodes?.length ?? 0}
+          outputCount={detail.outputs.length}
         />
       ) : null}
       <div className="run-layout">
@@ -109,21 +122,34 @@ export function RunDetailPage() {
             selectedNodeId={selectedNodeId}
             onSelectNode={loadNode}
           />
-          {selectedNodeId ? (
-            <button
-              className="primary-button full-width-button"
-              onClick={async () => {
-                const result = await studioApi.rerun(workflowId, runId, { from_node: selectedNodeId });
-                window.location.href = `/workflows/${workflowId}/runs/${result.run_id}`;
-              }}
-            >
-              Rerun from {selectedNodeId}
-            </button>
-          ) : null}
+          <div className="run-graph-footer">
+            <div className="selected-node-card">
+              <div className="selected-node-header">
+                <strong>{selectedGraphNode?.id || "No node selected"}</strong>
+                {selectedGraphNode ? <span className={`status-pill ${toneFromNodeStatus(selectedGraphNode.status)}`}>{selectedGraphNode.status || selectedGraphNode.type}</span> : null}
+              </div>
+              <div className="subtle">
+                {selectedGraphNode
+                  ? `type ${selectedGraphNode.type} · attempts ${selectedGraphNode.attempts ?? 0}${failedNodeId === selectedGraphNode.id ? " · last failure" : ""}`
+                  : "Select a node from the graph to inspect trace and rerun from that point."}
+              </div>
+            </div>
+            {selectedNodeId ? (
+              <button
+                className="primary-button full-width-button"
+                onClick={async () => {
+                  const result = await studioApi.rerun(workflowId, runId, { from_node: selectedNodeId });
+                  window.location.href = `/workflows/${workflowId}/runs/${result.run_id}`;
+                }}
+              >
+                Rerun from selected node
+              </button>
+            ) : null}
+          </div>
         </section>
         <div className="run-center">
-          <TraceViewer trace={nodeData?.trace ?? null} />
-          <NodeInspector data={nodeData} title="Node Inspector" />
+          <TraceViewer trace={nodeData?.trace ?? null} title="Trace" subtitle={traceSubtitle} />
+          <NodeInspector data={nodeData} title="Node Definition" mode="run" />
         </div>
         <div className="run-right">
           <OutputBrowser
@@ -151,4 +177,17 @@ export function RunDetailPage() {
       </div>
     </div>
   );
+}
+
+function toneFromNodeStatus(status?: string) {
+  switch ((status || "").toLowerCase()) {
+    case "success":
+      return "success";
+    case "failed":
+      return "failed";
+    case "running":
+      return "running";
+    default:
+      return "idle";
+  }
 }

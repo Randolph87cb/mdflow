@@ -479,6 +479,12 @@ button {
   gap: 6px;
 }
 
+.run-status-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
 .run-workflow-name {
   color: #58728d;
   font-weight: 500;
@@ -503,6 +509,32 @@ button {
   flex-direction: column;
 }
 
+.run-graph-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 16px;
+  border-top: 1px solid rgba(101, 127, 156, 0.1);
+  background: linear-gradient(180deg, rgba(248, 251, 254, 0.9) 0%, rgba(242, 247, 252, 0.96) 100%);
+}
+
+.selected-node-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(101, 127, 156, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.selected-node-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
 .run-center {
   display: flex;
   flex-direction: column;
@@ -518,6 +550,12 @@ button {
   flex-direction: column;
   gap: 14px;
   padding: 16px;
+}
+
+.trace-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .trace-block {
@@ -542,6 +580,39 @@ button {
   background: rgba(47, 127, 216, 0.12);
   border-color: rgba(47, 127, 216, 0.28);
   color: #286dbb;
+}
+
+.inspector-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.inspector-meta-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(101, 127, 156, 0.12);
+  background: #fbfdff;
+}
+
+.inspector-route-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspector-route-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(101, 127, 156, 0.12);
+  background: #fbfdff;
 }
 
 .code-block {

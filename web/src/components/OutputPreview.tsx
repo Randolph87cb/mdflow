@@ -11,7 +11,9 @@ export function OutputPreview({ data, downloadHref }: Props) {
       <div className="panel-header">
         <div>
           <strong>Output Preview</strong>
-          <div className="subtle">{data?.name || "No file selected"}</div>
+          <div className="subtle">
+            {data ? `${data.name} · ${data.path}` : "No file selected"}
+          </div>
         </div>
         {downloadHref ? (
           <a className="button-link" href={downloadHref} target="_blank" rel="noreferrer">

@@ -25,8 +25,8 @@ export function WorkflowDetailPage() {
     const node = nodes.find((item) => item.id === selectedNodeId);
     if (!node || !nodeContent) return null;
     return {
-      node: { id: node.id, type: node.type, name: node.name, produces: node.produces, next: node.next },
-      source: { path: node.path, content: nodeContent },
+      node,
+      source: { path: node.path, scope: "live workflow", content: nodeContent },
       trace: { attempt: 0, input: null, prompt: null, stdout: null, stderr: null, output: null },
     };
   }, [nodeContent, nodes, selectedNodeId]);
@@ -120,7 +120,7 @@ export function WorkflowDetailPage() {
           <WorkflowGraph nodes={graph.nodes} edges={graph.edges} selectedNodeId={selectedNodeId} onSelectNode={loadNode} />
         </section>
         <aside className="workspace-inspector">
-          <NodeInspector data={inspectorData} title="Node Source" />
+          <NodeInspector data={inspectorData} title="Node Source" mode="workflow" />
           {selectedNodeId ? (
             <button className="primary-button full-width-button" onClick={() => setEditorOpen(true)}>
               Edit node

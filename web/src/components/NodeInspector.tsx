@@ -4,33 +4,33 @@ import type { NodeInspectorData } from "../lib/types";
 type Props = {
   data: NodeInspectorData | null;
   title?: string;
+  mode?: "workflow" | "run";
 };
 
-export function NodeInspector({ data, title }: Props) {
-  const [tab, setTab] = useState<"source" | "trace" | "output">("source");
-  const traceText = useMemo(() => {
+export function NodeInspector({ data, title, mode = "run" }: Props) {
+  const [tab, setTab] = useState<"source" | "meta">("source");
+  const metaLines = useMemo(() => {
     if (!data) {
-      return "";
+      return [];
     }
-    return [
-      data.trace.input ? `## Input\n${data.trace.input}` : "",
-      data.trace.prompt ? `## Prompt\n${data.trace.prompt}` : "",
-      data.trace.stdout ? `## Stdout\n${data.trace.stdout}` : "",
-      data.trace.stderr ? `## Stderr\n${data.trace.stderr}` : "",
-      data.trace.route_selected
-        ? `## Route\nselected_next: ${data.trace.route_selected.selected_next ?? ""}\nsource: ${data.trace.route_selected.route_source ?? ""}\noperator: ${data.trace.route_selected.route_operator ?? ""}`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-  }, [data]);
+    const lines = [
+      ["Type", data.node.type],
+      ["Produces", data.node.produces || "none"],
+      ["Next", data.node.next || "null"],
+      ["Retry", data.node.retry ? `max_attempts=${data.node.retry.max_attempts}` : "none"],
+      ["Default next", data.node.default_next || "null"],
+      ["Source", data.source.scope || (mode === "run" ? "workflow snapshot" : "live workflow")],
+      ["Path", data.source.path],
+    ];
+    return lines;
+  }, [data, mode]);
 
   return (
     <section className="panel">
       <div className="panel-header">
         <div>
           <strong>{title || "Node Inspector"}</strong>
-          {data ? <div className="subtle">{data.node.id}</div> : null}
+          {data ? <div className="subtle">{data.node.id} · {data.source.scope || (mode === "run" ? "workflow snapshot" : "live workflow")}</div> : null}
         </div>
         {data ? <span className={`status-pill ${toneFromType(data.node.type)}`}>{data.node.type}</span> : null}
       </div>
@@ -38,17 +38,35 @@ export function NodeInspector({ data, title }: Props) {
         <button className={tab === "source" ? "active" : ""} onClick={() => setTab("source")}>
           Source
         </button>
-        <button className={tab === "trace" ? "active" : ""} onClick={() => setTab("trace")}>
-          Trace
-        </button>
-        <button className={tab === "output" ? "active" : ""} onClick={() => setTab("output")}>
-          Output
+        <button className={tab === "meta" ? "active" : ""} onClick={() => setTab("meta")}>
+          Meta
         </button>
       </div>
       {!data ? <div className="empty-state">Select a node to inspect.</div> : null}
       {data && tab === "source" ? <pre className="code-block">{data.source.content}</pre> : null}
-      {data && tab === "trace" ? <pre className="code-block">{traceText || "No trace available."}</pre> : null}
-      {data && tab === "output" ? <pre className="code-block">{data.trace.output || "No output preview available."}</pre> : null}
+      {data && tab === "meta" ? (
+        <div className="inspector-meta">
+          {metaLines.map(([label, value]) => (
+            <div key={label} className="inspector-meta-row">
+              <span className="meta-label">{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+          {data.node.routes && data.node.routes.length ? (
+            <div className="inspector-route-list">
+              <div className="meta-label">Routes</div>
+              {data.node.routes.map((route, index) => (
+                <div key={`${route.source}-${route.next}-${index}`} className="inspector-route-card">
+                  <strong>{route.source}</strong>
+                  <span className="subtle">
+                    {route.operator} {String(route.value)} {"->"} {route.next}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -8,7 +8,7 @@ from mdflow.resolver import extract_file_references, extract_references
 from mdflow.runtime import rerun_workflow, run_workflow
 from mdflow.trace import read_json
 
-from .common import build_graph, latest_attempt_files, list_run_dirs, load_workflow_bundle_by_id, read_run_bundle, resolve_safe_child
+from .common import build_graph, latest_attempt_files, list_run_dirs, load_workflow_bundle_by_id, node_to_summary, read_run_bundle, resolve_safe_child
 
 
 def list_runs(config, workflow_id: str) -> list[dict[str, Any]]:
@@ -82,6 +82,7 @@ def get_run_node_detail(config, workflow_id: str, run_id: str, node_id: str) -> 
     node = bundle.nodes_by_id.get(node_id)
     if node is None:
         raise CliUsageError(f"node not found: {node_id}")
+    node_summary = node_to_summary(node)
     latest_files = latest_attempt_files(run_dir, node_catalog, node_id)
     trace = {
         "attempt": state.get("node_attempts", {}).get(node_id, 0),
@@ -93,15 +94,10 @@ def get_run_node_detail(config, workflow_id: str, run_id: str, node_id: str) -> 
         "route_selected": build_router_selection(run_dir, node_id) if node.type == "router" else None,
     }
     return {
-        "node": {
-            "id": node.id,
-            "type": node.type,
-            "name": node.name,
-            "produces": node.produces,
-            "next": node.next,
-        },
+        "node": node_summary,
         "source": {
             "path": node.path.relative_to(config.project_root).as_posix(),
+            "scope": "workflow snapshot" if "workflow_snapshot" in node.path.parts else "live workflow",
             "content": node.path.read_text(encoding="utf-8"),
         },
         "trace": trace,

@@ -10,15 +10,18 @@ type Props = {
 };
 
 export function OutputBrowser({ items, selected, active, onSelect, onToggle, onDownloadZip }: Props) {
+  const selectedCount = selected.length;
   return (
     <section className="panel">
       <div className="panel-header">
         <div>
           <strong>Outputs</strong>
-          <div className="subtle">{items.length} files</div>
+          <div className="subtle">
+            {items.length} files{selectedCount ? ` · ${selectedCount} selected` : ""}
+          </div>
         </div>
         <button className="ghost-button" onClick={onDownloadZip}>
-          Download zip
+          {selectedCount ? `Download ${selectedCount} files` : "Download zip"}
         </button>
       </div>
       <div className="output-list">

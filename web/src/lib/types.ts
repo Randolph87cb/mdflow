@@ -68,15 +68,10 @@ export type RunDetail = {
 };
 
 export type NodeInspectorData = {
-  node: {
-    id: string;
-    type: string;
-    name?: string | null;
-    produces?: string | null;
-    next?: string | null;
-  };
+  node: NodeSummary;
   source: {
     path: string;
+    scope?: string | null;
     content: string;
   };
   trace: {
