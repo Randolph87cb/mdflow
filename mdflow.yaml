@@ -1,0 +1,4 @@
+name: mdflow-project
+runs_dir: runs
+workflows_dir: workflows
+default_workflow: problem_gen
