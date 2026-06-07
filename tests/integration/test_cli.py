@@ -44,6 +44,187 @@ class CliIntegrationTests(unittest.TestCase):
             env=env,
         )
 
+    def _write_router_workflow(self, project_root: Path) -> None:
+        workflows_dir = project_root / "workflows" / "router_demo"
+        nodes_dir = workflows_dir / "nodes"
+        scripts_dir = workflows_dir / "scripts"
+        inputs_dir = workflows_dir / "inputs"
+        nodes_dir.mkdir(parents=True)
+        scripts_dir.mkdir(parents=True)
+        inputs_dir.mkdir(parents=True)
+        (workflows_dir / "workflow.md").write_text(
+            "---\n"
+            "id: router_demo\n"
+            "entry: seed_source\n"
+            "final_outputs:\n"
+            "  - source.txt\n"
+            "  - final.txt\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (inputs_dir / "default.md").write_text("demo\n", encoding="utf-8")
+        (nodes_dir / "01_seed_source.md").write_text(
+            "---\n"
+            "id: seed_source\n"
+            "type: script\n"
+            "next: compile_source\n"
+            "produces: source.txt\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/seed.py\", \"--out\", \"outputs/source.txt\", \"--content\", \"broken\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "02_compile_source.md").write_text(
+            "---\n"
+            "id: compile_source\n"
+            "type: script\n"
+            "next: route_compile\n"
+            "retry:\n"
+            "  max_attempts: 3\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/compile.py\", \"--src\", \"outputs/source.txt\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "03_route_compile.md").write_text(
+            "---\n"
+            "id: route_compile\n"
+            "type: router\n"
+            "routes:\n"
+            "  - when:\n"
+            "      source: compile_source.status\n"
+            "      equals: success\n"
+            "    next: package\n"
+            "  - when:\n"
+            "      source: compile_source.stderr\n"
+            "      contains: compile error\n"
+            "    next: fix_source\n"
+            "  - when:\n"
+            "      source: compile_source.attempts\n"
+            "      gte: 5\n"
+            "    next: hard_fail\n"
+            "default_next: hard_fail\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "04_fix_source.md").write_text(
+            "---\n"
+            "id: fix_source\n"
+            "type: script\n"
+            "next: compile_source\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/fix.py\", \"--src\", \"outputs/source.txt\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "05_package.md").write_text(
+            "---\n"
+            "id: package\n"
+            "type: script\n"
+            "next: null\n"
+            "produces: final.txt\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/package.py\", \"--src\", \"outputs/source.txt\", \"--out\", \"outputs/final.txt\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "06_hard_fail.md").write_text(
+            "---\n"
+            "id: hard_fail\n"
+            "type: script\n"
+            "next: null\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/hard_fail.py\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (scripts_dir / "seed.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--out');p.add_argument('--content');a=p.parse_args();Path(a.out).write_text(a.content, encoding='utf-8');print(a.content)\n", encoding="utf-8")
+        (scripts_dir / "compile.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');a=p.parse_args();text=Path(a.src).read_text(encoding='utf-8');\nif 'fixed' in text:\n print('compile success')\n raise SystemExit(0)\nraise SystemExit('compile error')\n", encoding="utf-8")
+        (scripts_dir / "fix.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');a=p.parse_args();Path(a.src).write_text('fixed', encoding='utf-8');print('fixed')\n", encoding="utf-8")
+        (scripts_dir / "package.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');p.add_argument('--out');a=p.parse_args();text=Path(a.src).read_text(encoding='utf-8');Path(a.out).write_text(f'packaged:{text}', encoding='utf-8');print('packaged')\n", encoding="utf-8")
+        (scripts_dir / "hard_fail.py").write_text("raise SystemExit('hard fail')\n", encoding="utf-8")
+
+    def _write_rerun_workflow(self, project_root: Path) -> None:
+        workflows_dir = project_root / "workflows" / "rerun_demo"
+        nodes_dir = workflows_dir / "nodes"
+        scripts_dir = workflows_dir / "scripts"
+        inputs_dir = workflows_dir / "inputs"
+        nodes_dir.mkdir(parents=True)
+        scripts_dir.mkdir(parents=True)
+        inputs_dir.mkdir(parents=True)
+        (workflows_dir / "workflow.md").write_text(
+            "---\n"
+            "id: rerun_demo\n"
+            "entry: seed_source\n"
+            "final_outputs:\n"
+            "  - source.txt\n"
+            "  - final.txt\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (inputs_dir / "default.md").write_text("demo\n", encoding="utf-8")
+        (nodes_dir / "01_seed_source.md").write_text(
+            "---\n"
+            "id: seed_source\n"
+            "type: script\n"
+            "next: compile_source\n"
+            "produces: source.txt\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/seed.py\", \"--out\", \"outputs/source.txt\", \"--content\", \"broken\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "02_compile_source.md").write_text(
+            "---\n"
+            "id: compile_source\n"
+            "type: script\n"
+            "next: package\n"
+            "retry:\n"
+            "  max_attempts: 2\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/compile.py\", \"--src\", \"outputs/source.txt\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (nodes_dir / "03_package.md").write_text(
+            "---\n"
+            "id: package\n"
+            "type: script\n"
+            "next: null\n"
+            "produces: final.txt\n"
+            "exec:\n"
+            "  program: python\n"
+            "  args: [\"scripts/package.py\", \"--src\", \"outputs/source.txt\", \"--out\", \"outputs/final.txt\"]\n"
+            "  cwd: .\n"
+            "  timeout_sec: 10\n"
+            "---\n",
+            encoding="utf-8",
+        )
+        (scripts_dir / "seed.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--out');p.add_argument('--content');a=p.parse_args();Path(a.out).write_text(a.content, encoding='utf-8');print(a.content)\n", encoding="utf-8")
+        (scripts_dir / "compile.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');a=p.parse_args();text=Path(a.src).read_text(encoding='utf-8');\nif 'fixed' in text:\n print('compile success')\n raise SystemExit(0)\nraise SystemExit('compile error')\n", encoding="utf-8")
+        (scripts_dir / "package.py").write_text("import argparse\nfrom pathlib import Path\np=argparse.ArgumentParser();p.add_argument('--src');p.add_argument('--out');a=p.parse_args();text=Path(a.src).read_text(encoding='utf-8');Path(a.out).write_text(f'packaged:{text}', encoding='utf-8');print('packaged')\n", encoding="utf-8")
+
     def test_run_success_show_and_cat(self) -> None:
         project_root = self._make_project_copy()
         result = self._run_cli(project_root, "run", "problem_gen", "--input", "workflows/problem_gen/inputs/default.md", "--run-id", "test-run")
@@ -98,6 +279,50 @@ class CliIntegrationTests(unittest.TestCase):
         run_dir = project_root / "runs" / "problem_gen" / "timeout-run"
         trace = json.loads((run_dir / "trace" / "trace.json").read_text(encoding="utf-8"))
         self.assertEqual(trace["events"][-1]["type"], "run_failed")
+
+    def test_router_and_retry_success_path(self) -> None:
+        project_root = self._make_project_copy()
+        self._write_router_workflow(project_root)
+        result = self._run_cli(project_root, "run", "router_demo", "--input", "workflows/router_demo/inputs/default.md", "--run-id", "router-run")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        run_dir = project_root / "runs" / "router_demo" / "router-run"
+        state = json.loads((run_dir / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual(state["status"], "success")
+        self.assertEqual(state["node_attempts"]["compile_source"], 4)
+        self.assertTrue((run_dir / "outputs" / "final.txt").exists())
+
+        trace = json.loads((run_dir / "trace" / "trace.json").read_text(encoding="utf-8"))
+        event_types = [event["type"] for event in trace["events"]]
+        self.assertIn("node_retry_scheduled", event_types)
+        self.assertIn("router_selected", event_types)
+
+        cat = self._run_cli(project_root, "cat", "runs/router_demo/router-run", "compile_source.stdout")
+        self.assertEqual(cat.returncode, 0, cat.stdout + cat.stderr)
+        self.assertIn("compile success", cat.stdout)
+
+    def test_rerun_from_failed_node_creates_new_run(self) -> None:
+        project_root = self._make_project_copy()
+        self._write_rerun_workflow(project_root)
+        first = self._run_cli(project_root, "run", "rerun_demo", "--input", "workflows/rerun_demo/inputs/default.md", "--run-id", "rerun-fail")
+        self.assertEqual(first.returncode, 1, first.stdout + first.stderr)
+
+        failed_run_dir = project_root / "runs" / "rerun_demo" / "rerun-fail"
+        failed_state = json.loads((failed_run_dir / "state.json").read_text(encoding="utf-8"))
+        self.assertEqual(failed_state["status"], "failed")
+        self.assertEqual(failed_state["current_node"], "compile_source")
+
+        (failed_run_dir / "outputs" / "source.txt").write_text("fixed", encoding="utf-8")
+        rerun = self._run_cli(project_root, "rerun", "runs/rerun_demo/rerun-fail", "--from", "compile_source", "--run-id", "rerun-ok")
+        self.assertEqual(rerun.returncode, 0, rerun.stdout + rerun.stderr)
+
+        rerun_dir = project_root / "runs" / "rerun_demo" / "rerun-ok"
+        rerun_state = json.loads((rerun_dir / "state.json").read_text(encoding="utf-8"))
+        rerun_meta = json.loads((rerun_dir / "meta.json").read_text(encoding="utf-8"))
+        self.assertEqual(rerun_state["status"], "success")
+        self.assertEqual((rerun_dir / "outputs" / "final.txt").read_text(encoding="utf-8"), "packaged:fixed")
+        self.assertEqual(rerun_meta["source_run_id"], "rerun-fail")
+        self.assertEqual(rerun_meta["rerun_from_node"], "compile_source")
+        self.assertEqual(failed_state["status"], "failed")
 
 
 if __name__ == "__main__":

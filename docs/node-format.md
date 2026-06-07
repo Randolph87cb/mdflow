@@ -1,6 +1,6 @@
 # 节点文件规范
 
-本文档固定 `mdflow` 一阶段的节点文件协议。
+本文档描述当前已实现的节点协议。
 
 ## 总体格式
 
@@ -19,47 +19,57 @@
 - `front matter` 给 engine 读取
 - `body` 给人阅读
 - `llm` 节点的 `body` 直接作为 prompt 模板
-- `script` 节点的 `body` 仅作说明，不参与执行
+- `script` 和 `router` 节点的 `body` 只作说明，不参与执行
+
+## 节点类型
+
+当前支持三种节点：
+
+- `llm`
+- `script`
+- `router`
 
 ## 公共字段
 
-所有节点都必须包含：
+所有节点都支持：
 
 - `id: string`
-- `type: llm | script`
+- `type: llm | script | router`
+- `name: string` 可选
+
+普通执行节点还支持：
+
 - `next: string | null`
+- `produces: string` 可选
+- `retry.max_attempts: int` 可选
 
-可选字段：
+`router` 节点支持：
 
-- `name: string`
-- `produces: string`
+- `routes`
+- `default_next`
 
-### `produces`
+## `produces`
 
-`produces` 表示这个节点声明一个最终输出文件，路径始终相对于 `outputs/`。
+`produces` 表示声明一个最终输出文件，路径始终相对于 `outputs/`。
 
-一阶段的实际行为分两类：
+行为：
 
 - `llm` 节点：
-  把当前节点的 `trace/<node>.stdout.txt` 复制到 `outputs/<produces>`
+  把当前节点最后一次 attempt 的 `stdout` 复制到 `outputs/<produces>`
 - `script` 节点：
-  如果脚本执行后已经在 `outputs/<produces>` 写出了真实文件，则直接登记该文件
-  如果该文件不存在，才 fallback 为把当前节点的 `stdout` 复制到 `outputs/<produces>`
-
-示例：
-
-```yaml
-produces: std.cpp
-```
+  如果脚本执行后已经写出了 `outputs/<produces>`，则直接登记该文件
+  否则 fallback 为把最后一次 attempt 的 `stdout` 复制到 `outputs/<produces>`
+- `router` 节点：
+  不允许声明 `produces`
 
 ## 节点引用规则
 
-一阶段统一使用双花括号语法引用节点输出：
+统一使用双花括号语法引用节点输出：
 
 ```text
 {{initial.stdout}}
 {{generate_statement.stdout}}
-{{package_data.stderr}}
+{{compile_std.stderr}}
 ```
 
 只支持：
@@ -68,80 +78,85 @@ produces: std.cpp
 - `{{node_id.stdout}}`
 - `{{node_id.stderr}}`
 
-其中：
+语义：
 
-- `initial.stdout` 对应 `trace/00_initial.stdout.txt`
-- `node_id.stdout` 对应该节点的标准输出文件
-- `node_id.stderr` 对应该节点的标准错误文件
+- 在 `llm` 节点里，替换为对应文件内容
+- 在 `script` 节点 `exec.args` 里，替换为对应 trace 文件的绝对路径
+- 若某节点存在多次 attempt，默认引用该节点**最后一次 attempt** 的结果
 
-### 在 `llm` 节点里
+## `retry`
 
-引用会替换成对应文件的文本内容。
+普通执行节点支持：
 
-### 在 `script` 节点里
+```yaml
+retry:
+  max_attempts: 3
+```
 
-当引用出现在 `exec.args` 中时，会替换成对应 trace 文件的绝对路径。
+规则：
 
-## LLM 节点规范
+- 不写 `retry` 时，默认只执行 1 次
+- `max_attempts` 表示该节点在**一次进入该节点时**最多自动尝试的次数
+- runner 会在同一 run 内自动重试
+- 若节点失败且其 `next` 是 `router`，失败结果会交给 router 决策
+- 若节点失败且没有后续 router 接管，则当前 run 结束为 `failed`
 
-### 允许字段
+## `router` 节点
 
-- `id`
-- `type`
-- `next`
-- `name`
-- `produces`
-- `model`
-
-### `model`
-
-一阶段支持：
-
-- `provider`
-- `model`
-- `temperature`
-- `max_tokens`
-
-实际执行时按以下顺序合并：
-
-1. `mdflow.yaml`
-2. `workflow.md`
-3. 当前节点 `model`
-
-### 示例
+推荐格式：
 
 ```md
 ---
-id: generate_std
-type: llm
-produces: std.cpp
-next: generate_gen
-model:
-  model: gpt-5.4-mini
-  temperature: 0.2
+id: route_compile
+type: router
+routes:
+  - when:
+      source: compile_std.status
+      equals: success
+    next: package
+  - when:
+      source: compile_std.stderr
+      contains: compile error
+    next: fix_std
+default_next: package
 ---
 
-请根据下面题面直接输出可编译的 C++17 标准程序。
-不要输出解释，不要使用代码围栏。
-
-题面：
-{{generate_statement.stdout}}
+根据编译结果决定下一步。
 ```
 
-## Script 节点规范
+### `routes`
 
-### 允许字段
+有序规则列表，命中第一条后停止。
 
-- `id`
-- `type`
+每条 route 固定包含：
+
+- `when.source`
+- 一个判断字段：
+  - `equals`
+  - `contains`
+  - `regex`
+  - `gte`
 - `next`
-- `name`
-- `produces`
-- `exec`
 
-### `exec`
+### `when.source`
 
-一阶段使用结构化执行配置：
+当前支持：
+
+- `<node_id>.status`
+- `<node_id>.returncode`
+- `<node_id>.attempts`
+- `<node_id>.stdout`
+- `<node_id>.stderr`
+
+### `default_next`
+
+当所有 route 都未命中时使用。
+
+当前实现要求 `router` 必须显式写 `default_next`。
+
+## `script` 节点规范
+
+`script` 节点仍使用结构化执行配置：
 
 ```yaml
 exec:
@@ -154,78 +169,21 @@ exec:
     - outputs/gen.cpp
     - --out
     - outputs/data.zip
-    - --cases
-    - "25"
   cwd: outputs
   timeout_sec: 300
 ```
-
-支持字段：
-
-- `program: string`
-- `args: string[]`
-- `cwd: string`
-- `timeout_sec: integer`
-
-### `exec.args`
 
 规则：
 
-- 按数组逐项传入，不走 shell 拼接
-- `scripts/...` 这类 workflow 内脚本路径，会按 `workflow_dir` 解析成绝对路径
-- `outputs/...`、`trace/...` 这类 run 内显式路径，会按 `run_dir` 解析成绝对路径
-- 需要直接消费 trace 原件时，也可以用 `{{node_id.stdout}}` / `{{node_id.stderr}}`
-
-推荐风格：
-
-- workflow 私有脚本：`scripts/...`
-- run 内最终文件：`outputs/...`
-- run 内 trace 文件：`trace/...`
-
-### `exec.cwd`
-
-- 相对于当前 `run_dir`
-- 必须留在 `run_dir` 内
-
-### `exec.timeout_sec`
-
-- 单位为秒
-- 一阶段要求显式填写
-- 超时后节点立即失败
-
-### 示例
-
-```md
----
-id: package_data
-type: script
-produces: data.zip
-next: null
-exec:
-  program: python
-  args:
-    - scripts/package_data.py
-    - --statement
-    - outputs/题面.md
-    - --std
-    - outputs/std.cpp
-    - --gen
-    - outputs/gen.cpp
-    - --out
-    - outputs/data.zip
-    - --cases
-    - "25"
-  cwd: outputs
-  timeout_sec: 300
----
-
-编译标准程序和数据生成器，生成 25 组平铺的 .in/.out，并打成 data.zip。
-```
+- `scripts/...` 按 `workflow_dir` 解析
+- `outputs/...`、`trace/...` 按 `run_dir` 解析
+- `exec.cwd` 相对 `run_dir`
+- `exec.timeout_sec` 必填
 
 ## 当前节点协议总结
 
-1. 使用 `YAML front matter + Markdown body`
-2. 节点引用统一使用 `{{initial.stdout}}`、`{{node_id.stdout}}`、`{{node_id.stderr}}`
-3. `llm` 节点的 `body` 参与执行，`script` 节点的 `body` 不参与执行
-4. `script` 节点优先使用显式文件路径，如 `outputs/std.cpp`
-5. `produces` 对 `llm` 是发布 stdout，对 `script` 是声明最终输出目标，优先认脚本实际写出的文件
+1. 业务执行节点用 `llm` / `script`
+2. 分支判断用 `router`
+3. 节点失败可在同一 run 内自动重试
+4. 文本引用统一使用 `{{node_id.stdout}}` / `{{node_id.stderr}}`
+5. rerun 时，已完成节点若有 `produces`，会通过复制旧 run 的 `outputs/` 重新作为新 run 的起点

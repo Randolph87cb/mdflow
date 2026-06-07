@@ -30,3 +30,13 @@ def append_trace_event(path: Path, event: TraceEvent) -> None:
         payload = {"events": []}
     payload.setdefault("events", []).append(event.to_dict())
     write_json(path, payload)
+
+
+def list_output_index(outputs_dir: Path, run_dir: Path) -> dict[str, str]:
+    if not outputs_dir.exists():
+        return {}
+    outputs: dict[str, str] = {}
+    for file_path in sorted(path for path in outputs_dir.rglob("*") if path.is_file()):
+        key = file_path.relative_to(outputs_dir).as_posix()
+        outputs[key] = file_path.relative_to(run_dir).as_posix()
+    return outputs

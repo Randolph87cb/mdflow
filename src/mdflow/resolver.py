@@ -67,21 +67,19 @@ def merge_model_config(
     return merged
 
 
-def build_execution_chain(entry: str, nodes_by_id: dict[str, NodeSpec]) -> list[NodeSpec]:
-    ordered: list[NodeSpec] = []
-    seen: set[str] = set()
-    current_id: str | None = entry
-    while current_id is not None:
+def build_reachable_nodes(entry: str, nodes_by_id: dict[str, NodeSpec]) -> set[str]:
+    reachable: set[str] = set()
+    stack: list[str] = [entry]
+    while stack:
+        current_id = stack.pop()
+        if current_id in reachable:
+            continue
+        reachable.add(current_id)
         node = nodes_by_id[current_id]
-        if node.id in seen:
-            raise ValueError(f"cycle detected at node '{node.id}'")
-        ordered.append(node)
-        seen.add(node.id)
-        current_id = node.next
-    unreachable = sorted(set(nodes_by_id) - seen)
-    if unreachable:
-        raise ValueError(f"unreachable nodes: {', '.join(unreachable)}")
-    return ordered
+        for next_id in list_node_targets(node):
+            if next_id is not None:
+                stack.append(next_id)
+    return reachable
 
 
 def extract_references(text: str) -> list[tuple[str, str]]:
@@ -176,3 +174,24 @@ def make_trace_lookup(run_dir: Path, ordered_nodes: Iterable[NodeSpec]) -> dict[
 
 def make_trace_prefix_map(ordered_nodes: Iterable[NodeSpec]) -> dict[str, str]:
     return {node.id: f"{index:02d}_{node.id}" for index, node in enumerate(ordered_nodes, start=1)}
+
+
+def list_node_targets(node: NodeSpec) -> list[str]:
+    targets: list[str] = []
+    if node.type == "router":
+        for route in node.routes:
+            if route.next:
+                targets.append(route.next)
+        if node.default_next:
+            targets.append(node.default_next)
+        return targets
+    if node.next:
+        targets.append(node.next)
+    return targets
+
+
+def parse_route_source(source: str) -> tuple[str, str]:
+    if "." not in source:
+        raise ValueError(f"invalid route source '{source}'")
+    node_id, field = source.rsplit(".", 1)
+    return node_id, field

@@ -5,7 +5,7 @@ from typing import Any
 
 import yaml
 
-from mdflow.models import ExecConfig, NodeSpec, WorkflowBundle, WorkflowSpec
+from mdflow.models import ExecConfig, NodeSpec, RetryConfig, RouteSpec, WorkflowBundle, WorkflowSpec
 
 
 def load_workflow_bundle(workflow_dir: Path) -> WorkflowBundle:
@@ -35,6 +35,10 @@ def load_workflow_bundle(workflow_dir: Path) -> WorkflowBundle:
                 cwd=_string_or_empty(exec_data.get("cwd")),
                 timeout_sec=_int_or_zero(exec_data.get("timeout_sec")),
             )
+        retry_config = None
+        retry_data = front_matter.get("retry")
+        if isinstance(retry_data, dict):
+            retry_config = RetryConfig(max_attempts=_int_or_zero(retry_data.get("max_attempts")))
         nodes.append(
             NodeSpec(
                 id=_string_or_empty(front_matter.get("id")),
@@ -44,6 +48,9 @@ def load_workflow_bundle(workflow_dir: Path) -> WorkflowBundle:
                 produces=_optional_string(front_matter.get("produces")),
                 model=_as_dict(front_matter.get("model")),
                 exec=exec_config,
+                retry=retry_config,
+                routes=_route_list(front_matter.get("routes")),
+                default_next=_optional_string(front_matter.get("default_next")),
                 body=body,
                 path=node_path,
             )
@@ -94,3 +101,32 @@ def _as_dict(value: Any) -> dict[str, Any]:
 
 def _int_or_zero(value: Any) -> int:
     return value if isinstance(value, int) else 0
+
+
+def _route_list(value: Any) -> list[RouteSpec]:
+    routes: list[RouteSpec] = []
+    if not isinstance(value, list):
+        return routes
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        when = item.get("when")
+        if not isinstance(when, dict):
+            routes.append(RouteSpec(source="", operator="", value=None, next=_string_or_empty(item.get("next"))))
+            continue
+        operator = ""
+        route_value: object = None
+        for candidate in ["equals", "contains", "regex", "gte"]:
+            if candidate in when:
+                operator = candidate
+                route_value = when.get(candidate)
+                break
+        routes.append(
+            RouteSpec(
+                source=_string_or_empty(when.get("source")),
+                operator=operator,
+                value=route_value,
+                next=_string_or_empty(item.get("next")),
+            )
+        )
+    return routes

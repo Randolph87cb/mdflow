@@ -19,6 +19,7 @@ mdflow-project/
     run-files-format.md
     cli-spec.md
     validate-rules.md
+    execution-v2-design.md
 
   src/
     mdflow/

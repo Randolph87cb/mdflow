@@ -6,6 +6,19 @@ from typing import Any
 
 
 @dataclass(slots=True)
+class RetryConfig:
+    max_attempts: int
+
+
+@dataclass(slots=True)
+class RouteSpec:
+    source: str
+    operator: str
+    value: object
+    next: str
+
+
+@dataclass(slots=True)
 class ExecConfig:
     program: str
     args: list[str]
@@ -24,6 +37,9 @@ class NodeSpec:
     produces: str | None = None
     model: dict[str, Any] = field(default_factory=dict)
     exec: ExecConfig | None = None
+    retry: RetryConfig | None = None
+    routes: list[RouteSpec] = field(default_factory=list)
+    default_next: str | None = None
 
 
 @dataclass(slots=True)
@@ -66,6 +82,9 @@ class RunMeta:
     started_at: str
     finished_at: str | None
     status: str
+    source_run_id: str | None = None
+    source_run_dir: str | None = None
+    rerun_from_node: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -77,6 +96,9 @@ class RunMeta:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "status": self.status,
+            "source_run_id": self.source_run_id,
+            "source_run_dir": self.source_run_dir,
+            "rerun_from_node": self.rerun_from_node,
         }
 
 
@@ -88,6 +110,8 @@ class RunState:
     current_node: str | None
     completed_nodes: list[str]
     outputs: dict[str, str]
+    node_attempts: dict[str, int] = field(default_factory=dict)
+    last_failure: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -97,6 +121,8 @@ class RunState:
             "current_node": self.current_node,
             "completed_nodes": self.completed_nodes,
             "outputs": self.outputs,
+            "node_attempts": self.node_attempts,
+            "last_failure": self.last_failure,
         }
 
 

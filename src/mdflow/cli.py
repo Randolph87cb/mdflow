@@ -23,6 +23,11 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--input", required=True)
     run_parser.add_argument("--run-id")
 
+    rerun_parser = subparsers.add_parser("rerun")
+    rerun_parser.add_argument("run_dir")
+    rerun_parser.add_argument("--from", dest="from_node", required=True)
+    rerun_parser.add_argument("--run-id")
+
     show_parser = subparsers.add_parser("show")
     show_parser.add_argument("run_dir")
 
@@ -43,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_validate(config, args.workflow)
         if args.command == "run":
             return command_run(config, args.workflow, args.input, args.run_id)
+        if args.command == "rerun":
+            return command_rerun(config, args.run_dir, args.from_node, args.run_id)
         if args.command == "show":
             return command_show(config, args.run_dir)
         if args.command == "cat":
@@ -66,13 +73,13 @@ def command_validate(config, workflow_arg: str) -> int:
 
 def command_run(config, workflow_arg: str | None, input_arg: str, run_id: str | None) -> int:
     workflow_id, workflow_dir, _rel = resolve_workflow_dir(config, workflow_arg)
-    bundle, ordered_nodes = load_and_validate_workflow(config, workflow_dir)
+    bundle, node_catalog = load_and_validate_workflow(config, workflow_dir)
     input_path, input_rel = resolve_input_file(config.project_root, input_arg)
     final_run_id = run_id or make_run_id()
     run_dir, state = execute_run(
         config=config,
         bundle=bundle,
-        ordered_nodes=ordered_nodes,
+        node_catalog=node_catalog,
         input_path=input_path,
         input_rel=input_rel,
         run_id=final_run_id,
@@ -88,6 +95,54 @@ def command_run(config, workflow_arg: str | None, input_arg: str, run_id: str | 
     print(f"workflow: {workflow_id}")
     print(f"run_id: {final_run_id}")
     print(f"run_dir: {run_dir.relative_to(config.project_root).as_posix()}")
+    print(f"failed_node: {state.current_node}")
+    print("status: failed")
+    return 1
+
+
+def command_rerun(config, old_run_arg: str, from_node: str, run_id: str | None) -> int:
+    old_run_dir = resolve_run_dir(config.project_root, old_run_arg)
+    old_meta = read_json(old_run_dir / "meta.json")
+    old_state = read_json(old_run_dir / "state.json")
+    workflow_dir = (config.project_root / old_meta["workflow_dir"]).resolve()
+    bundle, node_catalog = load_and_validate_workflow(config, workflow_dir)
+    if from_node not in bundle.nodes_by_id:
+        raise CliUsageError(f"rerun start node not found: {from_node}")
+    input_rel = Path(str(old_meta["input_file"]))
+    input_path = old_run_dir / "trace" / "00_initial.stdout.txt"
+    final_run_id = run_id or make_run_id()
+    node_order = {node.id: index for index, node in enumerate(node_catalog)}
+    start_index = node_order[from_node]
+    initial_completed_nodes = [
+        node_id
+        for node_id in old_state.get("completed_nodes", [])
+        if node_id in node_order and node_order[node_id] < start_index
+    ]
+    run_dir, state = execute_run(
+        config=config,
+        bundle=bundle,
+        node_catalog=node_catalog,
+        input_path=input_path,
+        input_rel=input_rel,
+        run_id=final_run_id,
+        start_node_id=from_node,
+        source_run_dir=old_run_dir,
+        initial_outputs_dir=old_run_dir / "outputs",
+        initial_completed_nodes=initial_completed_nodes,
+    )
+    if state.status == "success":
+        print("RERUN OK")
+        print(f"workflow: {old_meta['workflow_id']}")
+        print(f"run_id: {final_run_id}")
+        print(f"run_dir: {run_dir.relative_to(config.project_root).as_posix()}")
+        print(f"rerun_from: {from_node}")
+        print("status: success")
+        return 0
+    print("RERUN FAILED")
+    print(f"workflow: {old_meta['workflow_id']}")
+    print(f"run_id: {final_run_id}")
+    print(f"run_dir: {run_dir.relative_to(config.project_root).as_posix()}")
+    print(f"rerun_from: {from_node}")
     print(f"failed_node: {state.current_node}")
     print("status: failed")
     return 1
@@ -128,11 +183,13 @@ def command_cat(config, run_arg: str, target: str) -> int:
     if stream not in {"stdout", "stderr"}:
         print(f"CAT FAILED\ntarget: {target}\nreason: invalid target")
         return 1
-    matches = sorted((run_dir / "trace").glob(f"*_{node_id}.{stream}.txt"))
+    matches = sorted((run_dir / "trace").glob(f"*_{node_id}.attempt-*.{stream}.txt"))
+    if not matches:
+        matches = sorted((run_dir / "trace").glob(f"*_{node_id}.{stream}.txt"))
     if not matches:
         print(f"CAT FAILED\ntarget: {target}\nreason: target file not found")
         return 1
-    print(matches[0].read_text(encoding="utf-8"), end="")
+    print(matches[-1].read_text(encoding="utf-8"), end="")
     return 0
 
 

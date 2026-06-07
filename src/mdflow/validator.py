@@ -6,17 +6,19 @@ from mdflow.errors import ValidationError
 from mdflow.models import NodeSpec, ProjectConfig, WorkflowBundle
 from mdflow.parser import load_workflow_bundle
 from mdflow.resolver import (
-    build_execution_chain,
+    build_reachable_nodes,
     ensure_relative_output_path,
     extract_references,
     is_workflow_script_arg,
+    list_node_targets,
+    parse_route_source,
 )
 
 
 def load_and_validate_workflow(config: ProjectConfig, workflow_dir: Path) -> tuple[WorkflowBundle, list[NodeSpec]]:
     bundle = load_workflow_bundle(workflow_dir)
-    ordered_nodes = validate_workflow_bundle(config, bundle)
-    return bundle, ordered_nodes
+    node_catalog = validate_workflow_bundle(config, bundle)
+    return bundle, node_catalog
 
 
 def validate_project_config(config: ProjectConfig) -> None:
@@ -89,17 +91,23 @@ def validate_workflow_bundle(config: ProjectConfig, bundle: WorkflowBundle) -> l
     if workflow.entry and workflow.entry not in nodes_by_id:
         errors.append(f"workflow.md: entry node '{workflow.entry}' not found")
 
-    ordered_nodes: list[NodeSpec] = []
+    display_nodes = nodes
+    reachable_nodes: set[str] = set()
     if not errors and workflow.entry:
         try:
-            ordered_nodes = build_execution_chain(workflow.entry, nodes_by_id)
+            reachable_nodes = build_reachable_nodes(workflow.entry, nodes_by_id)
         except ValueError as exc:
             errors.append(f"workflow.md: {exc}")
+        else:
+            unreachable = sorted(set(nodes_by_id) - reachable_nodes)
+            if unreachable:
+                errors.append(f"workflow.md: unreachable nodes: {', '.join(unreachable)}")
 
-    if ordered_nodes:
-        order_map = {node.id: index for index, node in enumerate(ordered_nodes)}
-        for node in ordered_nodes:
-            _validate_node_references(node, order_map, errors)
+    if nodes:
+        order_map = {node.id: index for index, node in enumerate(nodes)}
+        predecessor_map = _build_predecessor_map(nodes)
+        for node in nodes:
+            _validate_node_references(node, order_map, predecessor_map, errors)
 
     if workflow.final_outputs:
         declared_outputs = {node.produces for node in nodes if node.produces}
@@ -109,7 +117,7 @@ def validate_workflow_bundle(config: ProjectConfig, bundle: WorkflowBundle) -> l
 
     if errors:
         raise ValidationError(errors)
-    return ordered_nodes
+    return display_nodes
 
 
 def _validate_node(
@@ -131,14 +139,19 @@ def _validate_node(
     else:
         seen_ids.add(node.id)
 
-    if node.type not in {"llm", "script"}:
+    if node.type not in {"llm", "script", "router"}:
         errors.append(f"{location}: unsupported node type '{node.type}'")
-    if node.next is None and "next:" not in node.path.read_text(encoding="utf-8"):
+    if node.type != "router" and node.next is None and "next:" not in node.path.read_text(encoding="utf-8"):
         errors.append(f"{location}: missing required field 'next'")
     if node.next == node.id:
         errors.append(f"{location}: next must not point to itself")
     if node.next and node.next not in nodes_by_id:
         errors.append(f"{location}: next node '{node.next}' not found")
+    for target in list_node_targets(node):
+        if target == node.id:
+            errors.append(f"{location}: route must not point to itself")
+        if target not in nodes_by_id:
+            errors.append(f"{location}: next node '{target}' not found")
     if node.produces:
         try:
             ensure_relative_output_path(node.produces, label="produces")
@@ -152,6 +165,8 @@ def _validate_node(
         if not node.body.strip():
             errors.append(f"{location}: llm node body must not be empty")
         _validate_model_object(str(location), node.model, config, errors)
+    if node.retry is not None and node.retry.max_attempts <= 0:
+        errors.append(f"{location}: retry.max_attempts must be a positive integer")
     if node.type == "script":
         if node.exec is None:
             errors.append(f"{location}: script node missing exec")
@@ -176,6 +191,40 @@ def _validate_node(
                     if arg.startswith("outputs/") or arg.startswith("trace/"):
                         if Path(arg).is_absolute() or ".." in Path(arg).parts:
                             errors.append(f"{location}: invalid run-relative path '{arg}'")
+    if node.type == "router":
+        if node.produces:
+            errors.append(f"{location}: router node must not declare produces")
+        if node.exec is not None:
+            errors.append(f"{location}: router node must not declare exec")
+        if node.model:
+            errors.append(f"{location}: router node must not declare model")
+        if node.next is not None:
+            errors.append(f"{location}: router node must not declare next")
+        if not node.routes:
+            errors.append(f"{location}: router node must declare non-empty routes")
+        route_signatures: set[tuple[str, str, str, str]] = set()
+        for route in node.routes:
+            if not route.source:
+                errors.append(f"{location}: router route missing when.source")
+            if route.operator not in {"equals", "contains", "regex", "gte"}:
+                errors.append(f"{location}: router route has unsupported operator '{route.operator}'")
+            if not route.next:
+                errors.append(f"{location}: router route missing next")
+            try:
+                source_node_id, source_field = parse_route_source(route.source)
+            except ValueError as exc:
+                errors.append(f"{location}: {exc}")
+            else:
+                if source_node_id not in nodes_by_id:
+                    errors.append(f"{location}: route source references unknown node '{source_node_id}'")
+                if source_field not in {"status", "returncode", "attempts", "stdout", "stderr"}:
+                    errors.append(f"{location}: route source field '{source_field}' is not supported")
+            signature = (route.source, route.operator, str(route.value), route.next)
+            if signature in route_signatures:
+                errors.append(f"{location}: duplicate router route '{route.source}' -> '{route.next}'")
+            route_signatures.add(signature)
+        if not node.default_next:
+            errors.append(f"{location}: router node missing default_next")
 
 
 def _validate_model_object(location: str, model: dict[str, object], config: ProjectConfig, errors: list[str]) -> None:
@@ -194,7 +243,12 @@ def _validate_model_object(location: str, model: dict[str, object], config: Proj
         errors.append(f"{location}: model.max_tokens must be a positive integer")
 
 
-def _validate_node_references(node: NodeSpec, order_map: dict[str, int], errors: list[str]) -> None:
+def _validate_node_references(
+    node: NodeSpec,
+    order_map: dict[str, int],
+    predecessor_map: dict[str, set[str]],
+    errors: list[str],
+) -> None:
     location = str(node.path.relative_to(node.path.parents[3]))
     texts = [node.body] if node.type == "llm" else []
     if node.type == "script" and node.exec is not None:
@@ -213,7 +267,26 @@ def _validate_node_references(node: NodeSpec, order_map: dict[str, int], errors:
                 continue
             if order_map[name] >= order_map[node.id]:
                 errors.append(f"{location}: invalid reference '{{{{{name}.stdout}}}}' to non-previous node")
+    if node.type == "router":
+        direct_predecessors = predecessor_map.get(node.id, set())
+        for route in node.routes:
+            if not route.source:
+                continue
+            try:
+                source_node_id, _source_field = parse_route_source(route.source)
+            except ValueError:
+                continue
+            if source_node_id not in direct_predecessors:
+                errors.append(f"{location}: router source '{route.source}' must reference a direct predecessor node")
 
 
 def _valid_identifier(value: str) -> bool:
     return bool(value) and all(ch.isalnum() or ch in {"_", "-"} for ch in value)
+
+
+def _build_predecessor_map(nodes: list[NodeSpec]) -> dict[str, set[str]]:
+    predecessor_map: dict[str, set[str]] = {node.id: set() for node in nodes}
+    for node in nodes:
+        for target in list_node_targets(node):
+            predecessor_map.setdefault(target, set()).add(node.id)
+    return predecessor_map

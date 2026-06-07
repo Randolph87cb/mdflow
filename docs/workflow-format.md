@@ -1,13 +1,6 @@
 # 工作流文件规范
 
-本文档固定 `mdflow` 一阶段的 `workflow.md` 协议。
-
-`workflow.md` 只负责两件事：
-
-- 保存工作流级配置
-- 保存给人看的说明文档
-
-真实执行顺序只认各节点里的 `next`。
+本文档描述当前已实现的 `workflow.md` 协议。
 
 ## 总体格式
 
@@ -23,7 +16,72 @@
 
 正文只给人阅读，不参与执行。
 
-## 推荐格式
+## Front Matter 字段
+
+必填：
+
+- `id`
+- `entry`
+- `final_outputs`
+
+建议：
+
+- `name`
+- `model`
+
+## 字段规则
+
+### `id`
+
+- 工作流唯一标识
+- 应与目录名一致
+- 只允许字母、数字、下划线、短横线
+
+### `entry`
+
+- 入口节点 id
+- runner 从这里开始执行
+
+### `model`
+
+工作流级默认模型配置，支持：
+
+- `provider`
+- `model`
+- `temperature`
+- `max_tokens`
+
+优先级：
+
+1. `mdflow.yaml`
+2. `workflow.md`
+3. 节点 `model`
+
+### `final_outputs`
+
+声明整个 workflow 最终必须交付的文件列表。
+
+规则：
+
+- 每一项都相对于 `outputs/`
+- 每一项都必须至少被某个节点 `produces` 覆盖
+
+## 执行图规则
+
+当前实现已不再限定为单链。
+
+支持：
+
+- 普通节点通过 `next` 串联
+- `router` 节点通过 `routes[].next` 和 `default_next` 分支
+- 图中允许出现环
+
+要求：
+
+- 所有节点都必须从 `entry` 可达
+- 所有目标节点都必须存在
+
+## 示例
 
 ```md
 ---
@@ -44,96 +102,5 @@ final_outputs:
 
 # Problem Generation
 
-这里写工作流说明、使用场景和节点概览。
+这里写工作流说明、节点概览和使用方法。
 ```
-
-## Front Matter 字段
-
-### 必填
-
-- `id: string`
-- `entry: string`
-- `final_outputs: string[]`
-
-### 建议
-
-- `name: string`
-- `model: object`
-
-## 字段规则
-
-### `id`
-
-- 工作流唯一标识
-- 应与目录名一致
-- 只允许字母、数字、下划线、短横线
-
-### `entry`
-
-- 入口节点 id
-- 是实际执行起点
-
-### `model`
-
-工作流级默认模型配置。
-
-一阶段支持：
-
-- `provider`
-- `model`
-- `temperature`
-- `max_tokens`
-
-优先级：
-
-1. `mdflow.yaml`
-2. `workflow.md`
-3. `node.md`
-
-### `final_outputs`
-
-声明这个工作流最终必须交付哪些文件。
-
-规则：
-
-- 每一项都相对于 `outputs/`
-- 这里只写必要的最终输出文件
-- 每一项都必须至少被某个节点 `produces` 覆盖
-
-示例：
-
-```yaml
-final_outputs:
-  - 题面.md
-  - std.cpp
-  - gen.cpp
-  - data.zip
-```
-
-## Body 规则
-
-正文完全按说明文档处理，可以写：
-
-- 工作流目标
-- 节点概览
-- 输入约定
-- 输出约定
-- Mermaid 图
-- 维护备注
-
-但 engine 不会解析正文结构，也不会从正文推断执行逻辑。
-
-## Validator 最小检查项
-
-1. `workflow.md` 存在
-2. front matter 可解析
-3. `id`、`entry`、`final_outputs` 存在且格式合法
-4. `entry` 指向的节点存在
-5. `final_outputs` 不允许绝对路径、`..` 和重复项
-
-## 当前规范总结
-
-1. `workflow.md` 是工作流级配置和说明文档
-2. 正文不参与执行
-3. 执行顺序只认节点里的 `next`
-4. `final_outputs` 必填，并写必要的最终交付文件
