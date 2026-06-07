@@ -18,8 +18,9 @@ def find_project_root(start: Path) -> Path:
 
 
 def load_project_config(project_root: Path) -> ProjectConfig:
-    load_project_env(project_root)
-    config_path = project_root / "mdflow.yaml"
+    resolved_root = project_root.resolve()
+    load_project_env(resolved_root)
+    config_path = resolved_root / "mdflow.yaml"
     data = _load_yaml_file(config_path)
     return ProjectConfig(
         name=str(data.get("name", "")),
@@ -28,7 +29,7 @@ def load_project_config(project_root: Path) -> ProjectConfig:
         default_workflow=str(data.get("default_workflow", "")),
         model=_as_dict(data.get("model")),
         providers={str(k): _as_dict(v) for k, v in _as_dict(data.get("providers")).items()},
-        project_root=project_root,
+        project_root=resolved_root,
     )
 
 

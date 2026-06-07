@@ -28,12 +28,24 @@ mdflow-project/
       config.py
       parser.py
       resolver.py
+      runtime.py
       runner.py
       trace.py
       validator.py
+      studio/
+        app.py
+        schemas.py
+        api/
+        services/
       executors/
         llm.py
         script.py
+
+  web/
+    src/
+    index.html
+    package.json
+    vite.config.ts
 
   tests/
     unit/
@@ -82,7 +94,24 @@ Python 核心控制层，负责：
 - 校验协议
 - 执行节点
 - 落盘 `meta.json`、`state.json`、`trace.json`
-- 暴露 `validate`、`run`、`show`、`cat`
+- 暴露 `validate`、`run`、`rerun`、`show`、`cat`、`serve`
+
+### `src/mdflow/studio/`
+
+Workflow Studio 的后端服务层，负责：
+
+- 暴露 FastAPI API
+- 聚合 workflow / node / run / trace / output 数据
+- 处理 workflow 复制、节点编辑、run 创建与 rerun
+- 安全限制 trace / outputs 文件访问
+
+### `web/`
+
+Workflow Studio 的前端代码：
+
+- React + Vite
+- 3 个主页面：workflow 列表、workflow 详情、run 详情
+- 通过 `/api/*` 调用本地 Studio 后端
 
 ### `tests/`
 
@@ -127,6 +156,12 @@ runs/
     2026-06-07_12-30-00/
       meta.json
       state.json
+      input.md
+      workflow_snapshot/
+        workflow.md
+        nodes/
+        scripts/
+        inputs/
 
       trace/
         trace.json

@@ -8,3 +8,9 @@
 
 runs/*
 !runs/.gitkeep
+
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+.playwright-mcp/
+*.egg-info/

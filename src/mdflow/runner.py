@@ -31,7 +31,11 @@ def execute_run(
     node_catalog,
     input_path: Path,
     input_rel: Path,
+    input_source: dict[str, object],
     run_id: str,
+    prepared_run_dir: Path | None = None,
+    workflow_source_rel: Path | None = None,
+    note: str | None = None,
     start_node_id: str | None = None,
     source_run_dir: Path | None = None,
     initial_outputs_dir: Path | None = None,
@@ -40,13 +44,13 @@ def execute_run(
     validate_project_config(config)
     validate_workflow_bundle(config, bundle)
 
-    run_dir = (config.project_root / config.runs_dir / bundle.workflow.id / run_id).resolve()
-    if run_dir.exists():
+    run_dir = (prepared_run_dir or (config.project_root / config.runs_dir / bundle.workflow.id / run_id)).resolve()
+    if prepared_run_dir is None and run_dir.exists():
         raise ValidationError([f"run directory already exists: {run_dir}"])
     trace_dir = run_dir / "trace"
     outputs_dir = run_dir / "outputs"
-    trace_dir.mkdir(parents=True)
-    outputs_dir.mkdir(parents=True)
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    outputs_dir.mkdir(parents=True, exist_ok=True)
 
     if initial_outputs_dir is not None and initial_outputs_dir.exists():
         _copy_directory_contents(initial_outputs_dir, outputs_dir)
@@ -55,12 +59,14 @@ def execute_run(
     meta = RunMeta(
         run_id=run_id,
         workflow_id=bundle.workflow.id,
-        workflow_dir=bundle.workflow.workflow_dir.relative_to(config.project_root).as_posix(),
+        workflow_dir=(workflow_source_rel or bundle.workflow.workflow_dir.relative_to(config.project_root)).as_posix(),
         input_file=input_rel.as_posix(),
+        input_source=input_source,
         entry_node=bundle.workflow.entry,
         started_at=now,
         finished_at=None,
         status="running",
+        note=note,
         source_run_id=source_run_dir.name if source_run_dir is not None else None,
         source_run_dir=source_run_dir.relative_to(config.project_root).as_posix() if source_run_dir is not None else None,
         rerun_from_node=start_node_id if source_run_dir is not None else None,

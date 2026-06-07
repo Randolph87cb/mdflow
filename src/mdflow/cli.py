@@ -6,7 +6,7 @@ from pathlib import Path
 from mdflow.config import find_project_root, load_project_config
 from mdflow.errors import CliUsageError, ValidationError
 from mdflow.resolver import resolve_input_file, resolve_run_dir, resolve_workflow_dir
-from mdflow.runner import execute_run, make_run_id
+from mdflow.runtime import rerun_workflow, run_workflow
 from mdflow.trace import read_json
 from mdflow.validator import load_and_validate_workflow, validate_project_config
 
@@ -27,6 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     rerun_parser.add_argument("run_dir")
     rerun_parser.add_argument("--from", dest="from_node", required=True)
     rerun_parser.add_argument("--run-id")
+
+    serve_parser = subparsers.add_parser("serve")
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=7832)
 
     show_parser = subparsers.add_parser("show")
     show_parser.add_argument("run_dir")
@@ -50,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
             return command_run(config, args.workflow, args.input, args.run_id)
         if args.command == "rerun":
             return command_rerun(config, args.run_dir, args.from_node, args.run_id)
+        if args.command == "serve":
+            return command_serve(config, args.host, args.port)
         if args.command == "show":
             return command_show(config, args.run_dir)
         if args.command == "cat":
@@ -72,18 +78,15 @@ def command_validate(config, workflow_arg: str) -> int:
 
 
 def command_run(config, workflow_arg: str | None, input_arg: str, run_id: str | None) -> int:
-    workflow_id, workflow_dir, _rel = resolve_workflow_dir(config, workflow_arg)
-    bundle, node_catalog = load_and_validate_workflow(config, workflow_dir)
-    input_path, input_rel = resolve_input_file(config.project_root, input_arg)
-    final_run_id = run_id or make_run_id()
-    run_dir, state = execute_run(
+    workflow_id, _workflow_dir, _rel = resolve_workflow_dir(config, workflow_arg)
+    run_dir, state = run_workflow(
         config=config,
-        bundle=bundle,
-        node_catalog=node_catalog,
-        input_path=input_path,
-        input_rel=input_rel,
-        run_id=final_run_id,
+        workflow_arg=workflow_arg,
+        input_mode="file",
+        input_file_arg=input_arg,
+        run_id=run_id,
     )
+    final_run_id = run_dir.name
     if state.status == "success":
         print("RUN OK")
         print(f"workflow: {workflow_id}")
@@ -103,33 +106,13 @@ def command_run(config, workflow_arg: str | None, input_arg: str, run_id: str | 
 def command_rerun(config, old_run_arg: str, from_node: str, run_id: str | None) -> int:
     old_run_dir = resolve_run_dir(config.project_root, old_run_arg)
     old_meta = read_json(old_run_dir / "meta.json")
-    old_state = read_json(old_run_dir / "state.json")
-    workflow_dir = (config.project_root / old_meta["workflow_dir"]).resolve()
-    bundle, node_catalog = load_and_validate_workflow(config, workflow_dir)
-    if from_node not in bundle.nodes_by_id:
-        raise CliUsageError(f"rerun start node not found: {from_node}")
-    input_rel = Path(str(old_meta["input_file"]))
-    input_path = old_run_dir / "trace" / "00_initial.stdout.txt"
-    final_run_id = run_id or make_run_id()
-    node_order = {node.id: index for index, node in enumerate(node_catalog)}
-    start_index = node_order[from_node]
-    initial_completed_nodes = [
-        node_id
-        for node_id in old_state.get("completed_nodes", [])
-        if node_id in node_order and node_order[node_id] < start_index
-    ]
-    run_dir, state = execute_run(
+    run_dir, state = rerun_workflow(
         config=config,
-        bundle=bundle,
-        node_catalog=node_catalog,
-        input_path=input_path,
-        input_rel=input_rel,
-        run_id=final_run_id,
-        start_node_id=from_node,
-        source_run_dir=old_run_dir,
-        initial_outputs_dir=old_run_dir / "outputs",
-        initial_completed_nodes=initial_completed_nodes,
+        old_run_arg=old_run_arg,
+        from_node=from_node,
+        run_id=run_id,
     )
+    final_run_id = run_dir.name
     if state.status == "success":
         print("RERUN OK")
         print(f"workflow: {old_meta['workflow_id']}")
@@ -146,6 +129,15 @@ def command_rerun(config, old_run_arg: str, from_node: str, run_id: str | None) 
     print(f"failed_node: {state.current_node}")
     print("status: failed")
     return 1
+
+
+def command_serve(config, host: str, port: int) -> int:
+    import uvicorn
+
+    from mdflow.studio.app import create_app
+
+    uvicorn.run(create_app(config.project_root), host=host, port=port)
+    return 0
 
 
 def command_show(config, run_arg: str) -> int:

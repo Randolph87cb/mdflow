@@ -5,6 +5,7 @@
 - `mdflow validate`
 - `mdflow run`
 - `mdflow rerun`
+- `mdflow serve`
 - `mdflow show`
 - `mdflow cat`
 
@@ -35,6 +36,20 @@ mdflow rerun runs/problem_gen/2026-06-07_12-30-00 --from build_and_run_std --run
 - 新建一个 run
 - 从指定节点重新开始执行
 - 旧 run 保持不变
+
+## `mdflow serve`
+
+```powershell
+mdflow serve
+mdflow serve --host 127.0.0.1 --port 7832
+```
+
+语义：
+
+- 启动本地 Workflow Studio
+- 默认监听 `127.0.0.1:7832`
+- 如果 `web/dist` 已构建，直接提供前端页面
+- 如果前端尚未构建，返回占位页提示
 
 ## `mdflow show`
 

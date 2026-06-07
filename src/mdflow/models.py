@@ -78,10 +78,12 @@ class RunMeta:
     workflow_id: str
     workflow_dir: str
     input_file: str
+    input_source: dict[str, Any]
     entry_node: str
     started_at: str
     finished_at: str | None
     status: str
+    note: str | None = None
     source_run_id: str | None = None
     source_run_dir: str | None = None
     rerun_from_node: str | None = None
@@ -92,10 +94,12 @@ class RunMeta:
             "workflow_id": self.workflow_id,
             "workflow_dir": self.workflow_dir,
             "input_file": self.input_file,
+            "input_source": self.input_source,
             "entry_node": self.entry_node,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "status": self.status,
+            "note": self.note,
             "source_run_id": self.source_run_id,
             "source_run_dir": self.source_run_dir,
             "rerun_from_node": self.rerun_from_node,

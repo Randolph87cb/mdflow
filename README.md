@@ -11,7 +11,35 @@
 - 支持 `router` 分支节点
 - 支持节点级自动重试
 - 支持 `mdflow rerun --from <node_id>` 从失败节点发起新 run
+- 支持 `mdflow serve` 启动本地 Workflow Studio
 - 示例 `problem_gen` 已演示“生成 -> 编译检查 -> 路由修复 -> 继续执行”的二阶段闭环，并可产出 `题面.md`、`std.cpp`、`gen.cpp`、`data.zip`
+
+## Workflow Studio
+
+阶段三已经补上本地 Studio：
+
+- 后端：`FastAPI`，挂在 `src/mdflow/studio/`
+- 前端：`React + Vite`，代码在 `web/`
+- 启动命令：
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m mdflow.cli serve --host 127.0.0.1 --port 7832
+```
+
+打开：
+
+- [http://127.0.0.1:7832](http://127.0.0.1:7832)
+
+当前 Studio 已支持：
+
+- 查看 workflow 列表
+- 查看 workflow graph、nodes、runs
+- 发起 run
+- 查看 run graph、trace、outputs
+- 编辑节点 Markdown
+- 复制 workflow
+- 从某个节点 rerun
 
 ## Micu API 配置
 

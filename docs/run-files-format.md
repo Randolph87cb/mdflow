@@ -2,9 +2,33 @@
 
 本文档描述当前 run 目录中的核心文件格式：
 
+- `input.md`
+- `workflow_snapshot/`
 - `meta.json`
 - `state.json`
 - `trace.json`
+
+## 当前 run 目录结构
+
+```text
+runs/<workflow_id>/<run_id>/
+  meta.json
+  state.json
+  input.md
+  workflow_snapshot/
+    workflow.md
+    nodes/
+    scripts/
+    inputs/
+  trace/
+  outputs/
+```
+
+阶段三开始：
+
+- `run` 和 `rerun` 都会创建 `input.md`
+- `run` 和 `rerun` 都会创建 `workflow_snapshot/`
+- 实际执行统一读取 snapshot，而不是直接读取 live workflow
 
 ## `meta.json`
 
@@ -15,11 +39,16 @@
   "run_id": "2026-06-07_12-30-00",
   "workflow_id": "problem_gen",
   "workflow_dir": "workflows/problem_gen",
-  "input_file": "workflows/problem_gen/inputs/default.md",
+  "input_file": "runs/problem_gen/2026-06-07_12-30-00/input.md",
+  "input_source": {
+    "mode": "file",
+    "path": "workflows/problem_gen/inputs/default.md"
+  },
   "entry_node": "generate_statement",
   "started_at": "2026-06-07T12:30:00+08:00",
   "finished_at": "2026-06-07T12:31:10+08:00",
   "status": "success",
+  "note": null,
   "source_run_id": null,
   "source_run_dir": null,
   "rerun_from_node": null
@@ -28,6 +57,7 @@
 
 rerun 时，来源信息会填入：
 
+- `input_source`
 - `source_run_id`
 - `source_run_dir`
 - `rerun_from_node`
@@ -115,5 +145,6 @@ mdflow rerun <old_run_dir> --from <node_id>
 时会：
 
 - 复制旧 run 的 `outputs/` 到新 run
-- 复制旧 run 的 `trace/00_initial.stdout.txt` 到新 run
+- 复制旧 run 的 `input.md` 到新 run
+- 重新创建新的 `workflow_snapshot/`
 - 对已完成且有 `produces` 的节点，生成 `attempt-00` 的 trace 占位，供后续节点引用

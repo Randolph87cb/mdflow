@@ -64,7 +64,7 @@ def validate_workflow_bundle(config: ProjectConfig, bundle: WorkflowBundle) -> l
         errors.append("workflow.md: missing required field 'id'")
     elif not _valid_identifier(workflow.id):
         errors.append(f"workflow.md: invalid workflow id '{workflow.id}'")
-    if workflow.id and workflow.id != workflow.workflow_dir.name:
+    if workflow.id and _should_enforce_workflow_dir_name(config, workflow.workflow_dir) and workflow.id != workflow.workflow_dir.name:
         errors.append(f"workflow.md: id '{workflow.id}' must match directory name '{workflow.workflow_dir.name}'")
     if not workflow.entry:
         errors.append("workflow.md: missing required field 'entry'")
@@ -297,3 +297,8 @@ def _build_predecessor_map(nodes: list[NodeSpec]) -> dict[str, set[str]]:
         for target in list_node_targets(node):
             predecessor_map.setdefault(target, set()).add(node.id)
     return predecessor_map
+
+
+def _should_enforce_workflow_dir_name(config: ProjectConfig, workflow_dir: Path) -> bool:
+    live_workflows_root = (config.project_root / config.workflows_dir).resolve()
+    return workflow_dir.parent.resolve() == live_workflows_root
