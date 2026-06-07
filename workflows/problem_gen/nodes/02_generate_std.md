@@ -2,7 +2,7 @@
 id: generate_std
 type: llm
 produces: std.cpp
-next: compile_std
+next: build_and_run_std
 model:
   temperature: 0.2
 ---

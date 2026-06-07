@@ -46,20 +46,13 @@ mdflow-project/
       nodes/
         01_generate_statement.md
         02_generate_std.md
-        03_compile_std.md
-        04_route_std_compile.md
-        05_capture_std_source.md
-        06_fix_std.md
-        07_capture_std_ready.md
-        08_generate_gen.md
-        09_compile_gen.md
-        10_route_gen_compile.md
-        11_capture_gen_source.md
-        12_fix_gen.md
-        13_package_data.md
+        03_build_and_run_std.md
+        04_route_std_result.md
+        05_fix_std.md
+        06_generate_gen.md
+        07_package_data.md
       scripts/
-        compile_cpp.py
-        dump_text_file.py
+        build_and_run_cpp.py
         package_data.py
       inputs/
         default.md
@@ -123,6 +116,7 @@ Python 核心控制层，负责：
 - `router` 条件分支
 - `retry.max_attempts`
 - 修复节点覆盖同名输出文件
+- LLM 直接读取 `outputs/...` 文件内容
 - 失败后可用 `rerun --from <node_id>` 从指定节点重跑
 
 ## 单次运行结构
@@ -146,19 +140,19 @@ runs/
         02_generate_std.attempt-01.stdout.txt
         02_generate_std.attempt-01.stderr.txt
 
-        03_compile_std.attempt-01.stdout.txt
-        03_compile_std.attempt-01.stderr.txt
+        03_build_and_run_std.attempt-01.stdout.txt
+        03_build_and_run_std.attempt-01.stderr.txt
 
-        06_fix_std.attempt-01.prompt.txt
-        06_fix_std.attempt-01.stdout.txt
-        06_fix_std.attempt-01.stderr.txt
+        05_fix_std.attempt-01.prompt.txt
+        05_fix_std.attempt-01.stdout.txt
+        05_fix_std.attempt-01.stderr.txt
 
-        08_generate_gen.attempt-01.prompt.txt
-        08_generate_gen.attempt-01.stdout.txt
-        08_generate_gen.attempt-01.stderr.txt
+        06_generate_gen.attempt-01.prompt.txt
+        06_generate_gen.attempt-01.stdout.txt
+        06_generate_gen.attempt-01.stderr.txt
 
-        13_package_data.attempt-01.stdout.txt
-        13_package_data.attempt-01.stderr.txt
+        07_package_data.attempt-01.stdout.txt
+        07_package_data.attempt-01.stderr.txt
 
       outputs/
         题面.md

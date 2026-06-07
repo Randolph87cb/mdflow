@@ -2,14 +2,14 @@
 id: fix_std
 type: llm
 produces: std.cpp
-next: compile_std
+next: build_and_run_std
 model:
   temperature: 0.1
 ---
 
 # Fix Std
 
-请修复下面这份 C++17 标准程序，使它能正确编译并符合题面要求。
+请修复下面这份 C++17 标准程序，使它能正确编译并尽量通过题面样例。
 
 要求：
 
@@ -22,7 +22,7 @@ model:
 {{generate_statement.stdout}}
 
 当前标准程序：
-{{capture_std_source.stdout}}
+{{file:outputs/std.cpp}}
 
-最近一次编译错误：
-{{compile_std.stderr}}
+最近一次编译或运行错误：
+{{build_and_run_std.stderr}}

@@ -8,6 +8,7 @@ from mdflow.errors import CliUsageError
 from mdflow.models import NodeSpec, ProjectConfig
 
 REFERENCE_PATTERN = re.compile(r"\{\{\s*(initial|[A-Za-z0-9_-]+)\.(stdout|stderr)\s*\}\}")
+FILE_REFERENCE_PATTERN = re.compile(r"\{\{\s*file:((?:outputs|trace)/[^{}]+?)\s*\}\}")
 INTERPRETER_PROGRAMS = {"python", "python.exe", "py", "node", "node.exe"}
 
 
@@ -84,7 +85,15 @@ def build_reachable_nodes(entry: str, nodes_by_id: dict[str, NodeSpec]) -> set[s
 
 def extract_references(text: str) -> list[tuple[str, str]]:
     refs = [(match.group(1), match.group(2)) for match in REFERENCE_PATTERN.finditer(text)]
-    scrubbed = REFERENCE_PATTERN.sub("", text)
+    scrubbed = FILE_REFERENCE_PATTERN.sub("", REFERENCE_PATTERN.sub("", text))
+    if "{{" in scrubbed or "}}" in scrubbed:
+        raise ValueError("unsupported template reference syntax")
+    return refs
+
+
+def extract_file_references(text: str) -> list[str]:
+    refs = [match.group(1) for match in FILE_REFERENCE_PATTERN.finditer(text)]
+    scrubbed = FILE_REFERENCE_PATTERN.sub("", REFERENCE_PATTERN.sub("", text))
     if "{{" in scrubbed or "}}" in scrubbed:
         raise ValueError("unsupported template reference syntax")
     return refs
@@ -153,11 +162,19 @@ def resolve_script_args(
 
 
 def render_prompt(text: str, trace_lookup: dict[tuple[str, str], Path]) -> str:
+    sample_path = next(iter(trace_lookup.values()))
+    run_dir = sample_path.parents[1]
+
     def replace(match: re.Match[str]) -> str:
         key = (match.group(1), match.group(2))
         return trace_lookup[key].read_text(encoding="utf-8")
 
-    rendered = REFERENCE_PATTERN.sub(replace, text)
+    def replace_file(match: re.Match[str]) -> str:
+        relative = match.group(1).strip()
+        ensure_relative_output_path(relative, label="file reference")
+        return (run_dir / relative).read_text(encoding="utf-8")
+
+    rendered = FILE_REFERENCE_PATTERN.sub(replace_file, REFERENCE_PATTERN.sub(replace, text))
     if "{{" in rendered or "}}" in rendered:
         raise ValueError("unsupported template reference syntax")
     return rendered

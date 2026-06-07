@@ -78,6 +78,7 @@
 {{initial.stdout}}
 {{generate_statement.stdout}}
 {{compile_std.stderr}}
+{{file:outputs/std.cpp}}
 ```
 
 只支持：
@@ -85,12 +86,15 @@
 - `{{initial.stdout}}`
 - `{{node_id.stdout}}`
 - `{{node_id.stderr}}`
+- `{{file:outputs/...}}`
+- `{{file:trace/...}}`
 
 语义：
 
 - 在 `llm` 节点里，替换为对应文件内容
 - 在 `script` 节点 `exec.args` 里，替换为对应 trace 文件的绝对路径
 - 若某节点存在多次 attempt，默认引用该节点**最后一次 attempt** 的结果
+- `file:` 语法只在 `llm` 节点正文里按 run 内相对路径读取实际文件内容，适合直接消费当前 `outputs/*.cpp`
 
 ## `retry`
 

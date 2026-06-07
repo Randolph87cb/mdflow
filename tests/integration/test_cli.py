@@ -336,7 +336,7 @@ class CliIntegrationTests(unittest.TestCase):
             "print('late')\n",
             encoding="utf-8",
         )
-        node_path = project_root / "workflows" / "problem_gen" / "nodes" / "13_package_data.md"
+        node_path = project_root / "workflows" / "problem_gen" / "nodes" / "07_package_data.md"
         node_path.write_text(node_path.read_text(encoding="utf-8").replace("timeout_sec: 300", "timeout_sec: 1"), encoding="utf-8")
         result = self._run_cli(project_root, "run", "problem_gen", "--input", "workflows/problem_gen/inputs/default.md", "--run-id", "timeout-run")
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)

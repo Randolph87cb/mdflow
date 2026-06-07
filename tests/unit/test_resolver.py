@@ -13,14 +13,18 @@ class ResolverTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             run_dir = Path(tmp_dir)
             trace_dir = run_dir / "trace"
+            outputs_dir = run_dir / "outputs"
             trace_dir.mkdir()
+            outputs_dir.mkdir()
             (trace_dir / "00_initial.stdout.txt").write_text("input text", encoding="utf-8")
+            (outputs_dir / "std.cpp").write_text("int main() { return 0; }\n", encoding="utf-8")
             nodes = [NodeSpec(id="demo", type="llm", next=None, body="", path=Path("demo.md"))]
             lookup = make_trace_lookup(run_dir, nodes)
             lookup[("demo", "stdout")].write_text("demo output", encoding="utf-8")
-            rendered = render_prompt("A\n{{initial.stdout}}\nB\n{{demo.stdout}}\n", lookup)
+            rendered = render_prompt("A\n{{initial.stdout}}\nB\n{{demo.stdout}}\nC\n{{file:outputs/std.cpp}}\n", lookup)
             self.assertIn("input text", rendered)
             self.assertIn("demo output", rendered)
+            self.assertIn("int main()", rendered)
 
     def test_resolve_script_args_supports_explicit_paths_and_refs(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

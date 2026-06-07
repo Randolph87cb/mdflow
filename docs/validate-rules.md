@@ -37,7 +37,10 @@
   - `{{initial.stdout}}`
   - `{{node_id.stdout}}`
   - `{{node_id.stderr}}`
+  - `{{file:outputs/...}}`
+  - `{{file:trace/...}}`
 - 普通节点中的这些引用，必须指向文件顺序上更早的节点
+- `file:` 引用不允许绝对路径和 `..`
 
 ## Router 节点
 

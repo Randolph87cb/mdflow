@@ -15,11 +15,11 @@ final_outputs:
 
 # Problem Generation Workflow
 
-这个示例 workflow 用于演示二阶段的真实出题链：
+这个示例 workflow 用于演示二阶段的精简真实出题链：
 
 - 先生成题面
 - 再生成标准程序 `std.cpp`
-- 若编译失败，则走修复节点重写 `std.cpp`，再回到编译检查
+- 对 `std.cpp` 做编译加最小样例运行检查
+- 若失败，则走修复节点重写 `std.cpp`，再回到检查
 - 标程通过后再生成数据生成器 `gen.cpp`
-- 若生成器编译失败，则走修复节点重写 `gen.cpp`，再回到编译检查
-- 最后编译并生成 25 组平铺数据，打包为 `data.zip`
+- 最后统一编译并生成 25 组平铺数据，打包为 `data.zip`

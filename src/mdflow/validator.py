@@ -8,6 +8,7 @@ from mdflow.parser import load_workflow_bundle
 from mdflow.resolver import (
     build_reachable_nodes,
     ensure_relative_output_path,
+    extract_file_references,
     extract_references,
     is_workflow_script_arg,
     list_node_targets,
@@ -253,9 +254,18 @@ def _validate_node_references(
     for text in texts:
         try:
             refs = extract_references(text)
+            file_refs = extract_file_references(text)
         except ValueError as exc:
             errors.append(f"{location}: {exc}")
             continue
+        for file_ref in file_refs:
+            try:
+                ensure_relative_output_path(file_ref, label="file reference")
+            except ValueError as exc:
+                errors.append(f"{location}: {exc}")
+                continue
+            if not (file_ref.startswith("outputs/") or file_ref.startswith("trace/")):
+                errors.append(f"{location}: file reference must start with outputs/ or trace/: {file_ref}")
         for name, _stream in refs:
             if name == "initial":
                 continue
