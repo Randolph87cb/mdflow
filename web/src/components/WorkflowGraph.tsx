@@ -20,9 +20,6 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
     });
     return map;
   }, [nodes]);
-  const renderedIdToNodeId = useMemo(() => {
-    return new Map<string, string>(Array.from(nodeIdMap.entries(), ([nodeId, renderedId]) => [renderedId, nodeId]));
-  }, [nodeIdMap]);
   const graphDef = useMemo(() => {
     const lines = ["flowchart LR"];
     for (const node of nodes) {
@@ -51,15 +48,14 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
       if (!disposed && containerRef.current) {
         containerRef.current.innerHTML = svg;
         const root = containerRef.current;
-        root.querySelectorAll(".node").forEach((element) => {
-          const renderedNodeId = (element as SVGGElement).id.replace(/^flowchart-/, "");
-          const nodeId = renderedIdToNodeId.get(renderedNodeId);
-          if (!nodeId) {
+        Array.from(root.querySelectorAll(".node")).forEach((element, index) => {
+          const node = nodes[index];
+          if (!node) {
             return;
           }
           (element as HTMLElement).style.cursor = "pointer";
-          element.addEventListener("click", () => onSelectNode?.(nodeId));
-          if (selectedNodeId === nodeId) {
+          element.addEventListener("click", () => onSelectNode?.(node.id));
+          if (selectedNodeId === node.id) {
             (element as HTMLElement).classList.add("graph-node-selected");
           }
         });
@@ -73,7 +69,7 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
     return () => {
       disposed = true;
     };
-  }, [graphDef, onSelectNode, renderedIdToNodeId, selectedNodeId]);
+  }, [graphDef, nodes, onSelectNode, selectedNodeId]);
 
   return <div className="graph-panel" ref={containerRef} />;
 }
