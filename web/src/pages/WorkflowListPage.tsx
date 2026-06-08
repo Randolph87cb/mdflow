@@ -298,31 +298,28 @@ export function WorkflowListPage() {
     <div className="page workflow-list-page workflow-overview-page">
       {canUsePrototypeLayout ? (
         <section className="workflow-prototype-layout panel">
-          <div
-            className="workflow-prototype-canvas"
-            style={{ aspectRatio: `${prototypeLayout.canvas.width} / ${prototypeLayout.canvas.height}` }}
-          >
+          <div className="workflow-prototype-canvas">
             <div
               className="workflow-prototype-slot"
-              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-header")!, prototypeLayout.canvas)}
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-header")!)}
             >
               {headerSection}
             </div>
             <div
               className="workflow-prototype-slot"
-              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-list")!, prototypeLayout.canvas)}
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-list")!)}
             >
               {sidebarSection}
             </div>
             <div
               className="workflow-prototype-slot"
-              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-actions")!, prototypeLayout.canvas)}
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-actions")!)}
             >
               {actionsSection}
             </div>
             <div
               className="workflow-prototype-slot"
-              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-graph")!, prototypeLayout.canvas)}
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-graph")!)}
             >
               {graphSection}
             </div>

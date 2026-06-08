@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   clampBlockToCanvas,
@@ -7,14 +14,20 @@ import {
   createDefaultWorkflowLayout,
   getDefaultBlockTitle,
   getWorkflowBlockRelativeRect,
-  patchBlockWithRelativeRect,
+  normalizeLayoutCanvas,
+  patchBlockFromResolvedRect,
+  patchWorkflowBlockUnits,
   readStoredWorkflowLayout,
-  resizeWorkflowLayoutToCanvas,
+  resolveWorkflowBlockRect,
   saveWorkflowLayout,
   serializeWorkflowLayout,
   type WorkflowLayoutBlock,
+  type WorkflowLayoutBlockUnits,
   type WorkflowLayoutComponentType,
   type WorkflowLayoutDefinition,
+  type WorkflowLayoutField,
+  type WorkflowLayoutResolvedRect,
+  type WorkflowLayoutUnit,
 } from "../lib/workflowLayout";
 
 type ResizeHandle = "n" | "e" | "s" | "w" | "ne" | "nw" | "se" | "sw";
@@ -26,6 +39,7 @@ type DragState =
       pointerX: number;
       pointerY: number;
       initialBlock: WorkflowLayoutBlock;
+      initialRect: WorkflowLayoutResolvedRect;
     }
   | {
       mode: "resize";
@@ -33,6 +47,7 @@ type DragState =
       pointerX: number;
       pointerY: number;
       initialBlock: WorkflowLayoutBlock;
+      initialRect: WorkflowLayoutResolvedRect;
       handle: ResizeHandle;
     };
 
@@ -46,10 +61,21 @@ const COMPONENT_OPTIONS: Array<{ type: WorkflowLayoutComponentType; label: strin
   { type: "placeholder", label: "占位模块" },
 ];
 
-type LayoutUnitMode = "px" | "percent";
+const UNIT_OPTIONS: Array<{ value: WorkflowLayoutUnit; label: string }> = [
+  { value: "px", label: "px" },
+  { value: "percent", label: "%" },
+];
+
+const METRIC_FIELDS: Array<{ field: WorkflowLayoutField; label: string }> = [
+  { field: "x", label: "X" },
+  { field: "y", label: "Y" },
+  { field: "width", label: "宽度" },
+  { field: "height", label: "高度" },
+];
 
 export function LayoutLabPage() {
   const navigate = useNavigate();
+  const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [layout, setLayout] = useState<WorkflowLayoutDefinition>(() =>
     readStoredWorkflowLayout(getViewportCanvas()),
   );
@@ -58,8 +84,9 @@ export function LayoutLabPage() {
     return initial.blocks[0]?.id ?? null;
   });
   const [dragState, setDragState] = useState<DragState | null>(null);
-  const [unitMode, setUnitMode] = useState<LayoutUnitMode>("px");
-  const [message, setMessage] = useState("已读取当前布局。你可以拖动矩形，也可以在像素和百分比之间切换输入。");
+  const [message, setMessage] = useState(
+    "已读取当前布局。每个模块的 X、Y、宽度、高度都可以单独切换 px 或 %。",
+  );
   const [dirty, setDirty] = useState(false);
 
   const selectedBlock = useMemo(
@@ -77,6 +104,30 @@ export function LayoutLabPage() {
   }, [layout.blocks, selectedBlockId]);
 
   useEffect(() => {
+    const element = canvasStageRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      const nextCanvas = normalizeLayoutCanvas(entry.contentRect.width, entry.contentRect.height);
+      setLayout((current) => {
+        if (
+          current.canvas.width === nextCanvas.width &&
+          current.canvas.height === nextCanvas.height
+        ) {
+          return current;
+        }
+        return {
+          ...current,
+          canvas: nextCanvas,
+        };
+      });
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!dragState) return;
     const activeDrag = dragState;
 
@@ -87,20 +138,19 @@ export function LayoutLabPage() {
 
         const deltaX = snap(event.clientX - activeDrag.pointerX);
         const deltaY = snap(event.clientY - activeDrag.pointerY);
-        const nextBlock =
+        const nextRect =
           activeDrag.mode === "move"
-            ? clampBlockToCanvas(
-                {
-                  ...activeDrag.initialBlock,
-                  x: activeDrag.initialBlock.x + deltaX,
-                  y: activeDrag.initialBlock.y + deltaY,
-                },
-                current.canvas,
-              )
-            : clampBlockToCanvas(
-                resizeBlock(activeDrag.initialBlock, activeDrag.handle, deltaX, deltaY),
-                current.canvas,
-              );
+            ? {
+                ...activeDrag.initialRect,
+                x: activeDrag.initialRect.x + deltaX,
+                y: activeDrag.initialRect.y + deltaY,
+              }
+            : resizeResolvedRect(activeDrag.initialRect, activeDrag.handle, deltaX, deltaY);
+
+        const nextBlock = clampBlockToCanvas(
+          patchBlockFromResolvedRect(activeDrag.initialBlock, current.canvas, nextRect),
+          current.canvas,
+        );
 
         return {
           ...current,
@@ -127,9 +177,9 @@ export function LayoutLabPage() {
       <section className="layout-lab-hero panel">
         <div>
           <div className="eyebrow">Layout Lab</div>
-          <h1>像画框一样定义 workflow 页面布局</h1>
+          <h1>按真实页面宽高直接画模块</h1>
           <p>
-            先定义四个真实模块的位置和大小，再把这份布局直接应用到 workflow 首页。现在已经同时支持像素编辑和百分比还原。
+            画布会跟着当前编辑区域自动伸缩，不再锁定一个像素尺寸。每个模块的 X、Y、宽度和高度都可以分别选择 `px` 或 `%`。
           </p>
         </div>
         <div className="layout-lab-hero-meta">
@@ -163,18 +213,6 @@ export function LayoutLabPage() {
               ))}
             </div>
             <div className="layout-lab-toolbar-group">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => {
-                  const nextCanvas = getViewportCanvas();
-                  setLayout((current) => resizeWorkflowLayoutToCanvas(current, nextCanvas));
-                  setDirty(true);
-                  setMessage(`画布已同步到当前窗口尺寸 ${nextCanvas.width} x ${nextCanvas.height}。`);
-                }}
-              >
-                同步窗口尺寸
-              </button>
               <button
                 type="button"
                 className="secondary-button"
@@ -247,26 +285,21 @@ export function LayoutLabPage() {
 
           <div className="layout-lab-status">{message}</div>
 
-          <div className="layout-lab-canvas-wrap">
-            <div
-              className="layout-lab-canvas"
-              style={{
-                width: `${layout.canvas.width}px`,
-                height: `${layout.canvas.height}px`,
-              }}
-            >
+          <div className="layout-lab-canvas-stage" ref={canvasStageRef}>
+            <div className="layout-lab-canvas">
               {layout.blocks.map((block) => {
                 const isSelected = block.id === selectedBlockId;
                 const relative = getWorkflowBlockRelativeRect(block, layout.canvas);
+                const resolved = resolveWorkflowBlockRect(block, layout.canvas);
                 return (
                   <div
                     key={block.id}
                     className={`layout-lab-block ${isSelected ? "selected" : ""}`}
                     style={{
-                      left: `${block.x}px`,
-                      top: `${block.y}px`,
-                      width: `${block.width}px`,
-                      height: `${block.height}px`,
+                      left: `${resolved.x}px`,
+                      top: `${resolved.y}px`,
+                      width: `${resolved.width}px`,
+                      height: `${resolved.height}px`,
                       zIndex: block.zIndex,
                     }}
                     onPointerDown={(event) => {
@@ -279,6 +312,7 @@ export function LayoutLabPage() {
                         pointerX: event.clientX,
                         pointerY: event.clientY,
                         initialBlock: block,
+                        initialRect: resolved,
                       });
                     }}
                   >
@@ -288,10 +322,10 @@ export function LayoutLabPage() {
                     </div>
                     <div className="layout-lab-block-meta">
                       <span>
-                        {block.width} x {block.height}
+                        {formatBlockMetric(block.width, block.units.width)} x {formatBlockMetric(block.height, block.units.height)}
                       </span>
                       <span>
-                        {block.x}, {block.y}
+                        {formatBlockMetric(block.x, block.units.x)}, {formatBlockMetric(block.y, block.units.y)}
                       </span>
                       <span>
                         {relative.widthPct}% x {relative.heightPct}%
@@ -313,6 +347,7 @@ export function LayoutLabPage() {
                             pointerX: event.clientX,
                             pointerY: event.clientY,
                             initialBlock: block,
+                            initialRect: resolved,
                             handle,
                           });
                         }}
@@ -330,58 +365,20 @@ export function LayoutLabPage() {
           <div className="panel-header layout-lab-panel-header">
             <div>
               <strong>属性面板</strong>
-              <div className="subtle">支持像素和百分比两种输入方式，保存时会同时写入绝对值和相对值。</div>
-            </div>
-            <div className="layout-lab-unit-toggle" role="tablist" aria-label="布局单位">
-              <button
-                type="button"
-                className={unitMode === "px" ? "secondary-button active" : "secondary-button"}
-                onClick={() => setUnitMode("px")}
-              >
-                像素
-              </button>
-              <button
-                type="button"
-                className={unitMode === "percent" ? "secondary-button active" : "secondary-button"}
-                onClick={() => setUnitMode("percent")}
-              >
-                百分比
-              </button>
+              <div className="subtle">模块的四个字段都能单独切换单位。保存后 JSON 会保留单位定义和相对比例。</div>
             </div>
           </div>
 
           <div className="layout-lab-form">
             <div className="panel-header layout-lab-panel-header">
               <div>
-                <strong>画布尺寸</strong>
-                <div className="subtle">优先按当前窗口大小编辑，也可以直接输入像素值模拟目标分辨率。</div>
+                <strong>当前画布</strong>
+                <div className="subtle">这里直接反映当前页面可用区域大小，不再手工输入画布像素。</div>
               </div>
             </div>
             <div className="layout-lab-grid-fields">
-              <NumberField
-                label="画布宽度"
-                value={layout.canvas.width}
-                onChange={(value) => {
-                  const nextCanvas = {
-                    width: Math.max(960, value),
-                    height: layout.canvas.height,
-                  };
-                  setLayout((current) => resizeWorkflowLayoutToCanvas(current, nextCanvas));
-                  setDirty(true);
-                }}
-              />
-              <NumberField
-                label="画布高度"
-                value={layout.canvas.height}
-                onChange={(value) => {
-                  const nextCanvas = {
-                    width: layout.canvas.width,
-                    height: Math.max(720, value),
-                  };
-                  setLayout((current) => resizeWorkflowLayoutToCanvas(current, nextCanvas));
-                  setDirty(true);
-                }}
-              />
+              <MetricPreview label="宽度" value={`${layout.canvas.width}px`} />
+              <MetricPreview label="高度" value={`${layout.canvas.height}px`} />
             </div>
           </div>
 
@@ -418,83 +415,29 @@ export function LayoutLabPage() {
                 </select>
               </label>
 
-              <div className="layout-lab-grid-fields">
-                {unitMode === "px" ? (
-                  <>
-                    <NumberField
-                      label="X"
-                      value={selectedBlock.x}
-                      onChange={(value) => {
-                        updateSelectedBlock(setLayout, selectedBlock.id, { x: value });
-                        setDirty(true);
-                      }}
-                    />
-                    <NumberField
-                      label="Y"
-                      value={selectedBlock.y}
-                      onChange={(value) => {
-                        updateSelectedBlock(setLayout, selectedBlock.id, { y: value });
-                        setDirty(true);
-                      }}
-                    />
-                    <NumberField
-                      label="宽度"
-                      value={selectedBlock.width}
-                      onChange={(value) => {
-                        updateSelectedBlock(setLayout, selectedBlock.id, { width: value });
-                        setDirty(true);
-                      }}
-                    />
-                    <NumberField
-                      label="高度"
-                      value={selectedBlock.height}
-                      onChange={(value) => {
-                        updateSelectedBlock(setLayout, selectedBlock.id, { height: value });
-                        setDirty(true);
-                      }}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <RelativeField
-                      label="X%"
-                      value={getWorkflowBlockRelativeRect(selectedBlock, layout.canvas).xPct}
-                      onChange={(value) => {
-                        updateSelectedBlockRelative(setLayout, selectedBlock.id, layout.canvas, { xPct: value });
-                        setDirty(true);
-                      }}
-                    />
-                    <RelativeField
-                      label="Y%"
-                      value={getWorkflowBlockRelativeRect(selectedBlock, layout.canvas).yPct}
-                      onChange={(value) => {
-                        updateSelectedBlockRelative(setLayout, selectedBlock.id, layout.canvas, { yPct: value });
-                        setDirty(true);
-                      }}
-                    />
-                    <RelativeField
-                      label="宽度%"
-                      value={getWorkflowBlockRelativeRect(selectedBlock, layout.canvas).widthPct}
-                      onChange={(value) => {
-                        updateSelectedBlockRelative(setLayout, selectedBlock.id, layout.canvas, { widthPct: value });
-                        setDirty(true);
-                      }}
-                    />
-                    <RelativeField
-                      label="高度%"
-                      value={getWorkflowBlockRelativeRect(selectedBlock, layout.canvas).heightPct}
-                      onChange={(value) => {
-                        updateSelectedBlockRelative(setLayout, selectedBlock.id, layout.canvas, { heightPct: value });
-                        setDirty(true);
-                      }}
-                    />
-                  </>
-                )}
+              <div className="layout-lab-field-grid">
+                {METRIC_FIELDS.map(({ field, label }) => (
+                  <MetricField
+                    key={field}
+                    label={label}
+                    value={selectedBlock[field]}
+                    unit={selectedBlock.units[field]}
+                    onChange={(value) => {
+                      updateSelectedBlock(setLayout, selectedBlock.id, { [field]: value } as Partial<WorkflowLayoutBlock>);
+                      setDirty(true);
+                    }}
+                    onUnitChange={(unit) => {
+                      updateSelectedBlockUnits(setLayout, selectedBlock.id, layout.canvas, { [field]: unit });
+                      setDirty(true);
+                    }}
+                  />
+                ))}
               </div>
 
               <NumberField
                 label="层级"
                 value={selectedBlock.zIndex}
+                step="1"
                 onChange={(value) => {
                   updateSelectedBlock(setLayout, selectedBlock.id, { zIndex: value });
                   setDirty(true);
@@ -509,7 +452,7 @@ export function LayoutLabPage() {
             <div className="panel-header layout-lab-panel-header">
               <div>
                 <strong>布局 JSON</strong>
-                <div className="subtle">这份数据就是 workflow 首页布局的输入源。</div>
+                <div className="subtle">这里会写入数值、单位和相对比例，便于后续直接生成页面。</div>
               </div>
             </div>
             <textarea readOnly value={exportedJson} className="layout-lab-json-viewer" />
@@ -520,36 +463,59 @@ export function LayoutLabPage() {
   );
 }
 
-function NumberField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-}) {
+function MetricPreview({ label, value }: { label: string; value: string }) {
   return (
-    <label className="field">
+    <div className="layout-lab-metric-preview">
       <span>{label}</span>
-      <input
-        type="number"
-        value={value}
-        onChange={(event) => {
-          onChange(Number(event.target.value || 0));
-        }}
-      />
-    </label>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
-function RelativeField({
+function MetricField({
   label,
   value,
+  unit,
+  onChange,
+  onUnitChange,
+}: {
+  label: string;
+  value: number;
+  unit: WorkflowLayoutUnit;
+  onChange: (value: number) => void;
+  onUnitChange: (unit: WorkflowLayoutUnit) => void;
+}) {
+  return (
+    <div className="layout-lab-metric-field">
+      <NumberField
+        label={label}
+        value={value}
+        step={unit === "percent" ? "0.1" : "1"}
+        onChange={onChange}
+      />
+      <label className="field">
+        <span>单位</span>
+        <select value={unit} onChange={(event) => onUnitChange(event.target.value as WorkflowLayoutUnit)}>
+          {UNIT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  step,
   onChange,
 }: {
   label: string;
   value: number;
+  step: string;
   onChange: (value: number) => void;
 }) {
   return (
@@ -557,7 +523,7 @@ function RelativeField({
       <span>{label}</span>
       <input
         type="number"
-        step="0.1"
+        step={step}
         value={value}
         onChange={(event) => {
           onChange(Number(event.target.value || 0));
@@ -580,36 +546,41 @@ function updateSelectedBlock(
   }));
 }
 
-function updateSelectedBlockRelative(
+function updateSelectedBlockUnits(
   setLayout: Dispatch<SetStateAction<WorkflowLayoutDefinition>>,
   blockId: string,
   canvas: WorkflowLayoutDefinition["canvas"],
-  relativePatch: Parameters<typeof patchBlockWithRelativeRect>[2],
+  unitsPatch: Partial<WorkflowLayoutBlockUnits>,
 ) {
   setLayout((current) => ({
     ...current,
     blocks: current.blocks.map((block) =>
-      block.id === blockId ? patchBlockWithRelativeRect(block, canvas, relativePatch) : block,
+      block.id === blockId ? clampBlockToCanvas(patchWorkflowBlockUnits(block, canvas, unitsPatch), current.canvas) : block,
     ),
   }));
 }
 
-function resizeBlock(block: WorkflowLayoutBlock, handle: ResizeHandle, deltaX: number, deltaY: number) {
-  let next = { ...block };
+function resizeResolvedRect(
+  rect: WorkflowLayoutResolvedRect,
+  handle: ResizeHandle,
+  deltaX: number,
+  deltaY: number,
+) {
+  const next = { ...rect };
 
   if (handle.includes("e")) {
-    next.width = block.width + deltaX;
+    next.width = rect.width + deltaX;
   }
   if (handle.includes("s")) {
-    next.height = block.height + deltaY;
+    next.height = rect.height + deltaY;
   }
   if (handle.includes("w")) {
-    next.x = block.x + deltaX;
-    next.width = block.width - deltaX;
+    next.x = rect.x + deltaX;
+    next.width = rect.width - deltaX;
   }
   if (handle.includes("n")) {
-    next.y = block.y + deltaY;
-    next.height = block.height - deltaY;
+    next.y = rect.y + deltaY;
+    next.height = rect.height - deltaY;
   }
 
   return next;
@@ -623,14 +594,15 @@ function getViewportCanvas() {
   if (typeof window === "undefined") {
     return { width: 1440, height: 960 };
   }
-  return {
-    width: Math.max(960, window.innerWidth - 88),
-    height: Math.max(720, window.innerHeight - 180),
-  };
+  return normalizeLayoutCanvas(window.innerWidth - 520, window.innerHeight - 280);
 }
 
 function getComponentLabel(componentType: WorkflowLayoutComponentType) {
   return COMPONENT_OPTIONS.find((option) => option.type === componentType)?.label ?? "占位模块";
+}
+
+function formatBlockMetric(value: number, unit: WorkflowLayoutUnit) {
+  return unit === "percent" ? `${value}%` : `${Math.round(value)}px`;
 }
 
 const RESIZE_HANDLES: ResizeHandle[] = ["n", "e", "s", "w", "ne", "nw", "se", "sw"];
