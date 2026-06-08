@@ -36,13 +36,15 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
   const graphDef = useMemo(() => {
     const lines = ["flowchart LR"];
     for (const node of nodes) {
-      const attemptLine = node.attempts ? `\\nattempt ${node.attempts}` : "";
-      const label = sanitizeNodeLabel(`${node.id}\\n${node.type}${node.status ? `\\n${node.status}` : ""}${attemptLine}`);
+      const attemptLine = node.attempts ? `\\n尝试 ${node.attempts}` : "";
+      const label = sanitizeNodeLabel(
+        `${node.id}\\n${localizeNodeType(node.type)}${node.status ? `\\n${localizeRunStatus(node.status)}` : ""}${attemptLine}`,
+      );
       lines.push(`  ${nodeIdMap.get(node.id)}["${label}"]`);
     }
     for (const edge of edges) {
       const arrow = edge.kind === "route" || edge.kind === "default" ? "-->" : "-->";
-      const edgeText = edge.kind === "default" ? "default" : edge.kind === "route" ? "route" : "";
+      const edgeText = edge.kind === "default" ? "默认" : edge.kind === "route" ? "路由" : "";
       const label = edgeText ? `|${edgeText}|` : "";
       const fromId = nodeIdMap.get(edge.from);
       const toId = nodeIdMap.get(edge.to);
@@ -90,4 +92,32 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
 
 function sanitizeNodeLabel(value: string) {
   return value.replace(/"/g, '\\"');
+}
+
+function localizeNodeType(type: string) {
+  switch (type) {
+    case "llm":
+      return "LLM";
+    case "script":
+      return "脚本";
+    case "router":
+      return "路由";
+    default:
+      return type;
+  }
+}
+
+function localizeRunStatus(status: string) {
+  switch (status.toLowerCase()) {
+    case "success":
+      return "成功";
+    case "failed":
+      return "失败";
+    case "running":
+      return "运行中";
+    case "idle":
+      return "空闲";
+    default:
+      return status;
+  }
 }

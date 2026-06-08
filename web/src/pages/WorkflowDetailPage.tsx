@@ -27,7 +27,7 @@ export function WorkflowDetailPage() {
     if (!node || !nodeContent) return null;
     return {
       node,
-      source: { path: node.path, scope: "live workflow", content: nodeContent },
+      source: { path: node.path, scope: "当前工作流", content: nodeContent },
       trace: { attempt: 0, input: null, prompt: null, stdout: null, stderr: null, output: null },
     };
   }, [nodeContent, nodes, selectedNodeId]);
@@ -61,40 +61,40 @@ export function WorkflowDetailPage() {
         <div className="workspace-heading">
           <div className="workspace-breadcrumbs">
             <Link className="subtle-link" to="/">
-              Workflow Index
+              工作流总览
             </Link>
             <span className="subtle">/</span>
-            <span className="subtle">Definition</span>
+            <span className="subtle">定义</span>
           </div>
-          <div className="eyebrow">Live Workflow</div>
+          <div className="eyebrow">当前工作流</div>
           <strong>{workflow?.workflow_id}</strong>
-          <div className="subtle">{workflow?.name || "Markdown-defined local workflow"}</div>
+          <div className="subtle">{workflow?.name || "基于 Markdown 定义的本地工作流"}</div>
           <div className="workspace-path">{workflow?.workflow_path}</div>
         </div>
         <div className="workspace-summary">
           <div className="summary-chip">
-            <span className="meta-label">Entry</span>
+            <span className="meta-label">入口节点</span>
             <strong>{workflow?.entry || "-"}</strong>
           </div>
           <div className="summary-chip">
-            <span className="meta-label">Nodes</span>
+            <span className="meta-label">节点数</span>
             <strong>{nodes.length}</strong>
           </div>
           <div className="summary-chip">
-            <span className="meta-label">Recent runs</span>
+            <span className="meta-label">最近运行</span>
             <strong>{runs.length}</strong>
           </div>
           <div className="summary-chip">
-            <span className="meta-label">Final outputs</span>
+            <span className="meta-label">最终产物</span>
             <strong>{workflow?.final_outputs.length || 0}</strong>
           </div>
         </div>
         <div className="actions-cell">
           <button className="primary-button" onClick={() => setRunOpen(true)}>
-            Run workflow
+            运行工作流
           </button>
           <button className="ghost-button" onClick={() => setCopyOpen(true)}>
-            Copy workflow
+            复制工作流
           </button>
         </div>
       </section>
@@ -103,8 +103,8 @@ export function WorkflowDetailPage() {
           <section className="panel">
             <div className="panel-header">
               <div>
-                <strong>Nodes</strong>
-                <div className="subtle">Select a node to inspect the live Markdown source.</div>
+                <strong>节点</strong>
+                <div className="subtle">选择节点后可查看当前 Markdown 源码。</div>
               </div>
               <span className="metric-chip">{nodes.length}</span>
             </div>
@@ -119,7 +119,7 @@ export function WorkflowDetailPage() {
                     <strong>{node.id}</strong>
                     <div className="subtle">{node.produces || node.path}</div>
                   </div>
-                  <span className={`status-pill ${toneFromNodeType(node.type)}`}>{node.type}</span>
+                  <span className={`status-pill ${toneFromNodeType(node.type)}`}>{localizeNodeType(node.type)}</span>
                 </button>
               ))}
             </div>
@@ -127,8 +127,8 @@ export function WorkflowDetailPage() {
           <section className="panel">
             <div className="panel-header">
               <div>
-                <strong>Recent runs</strong>
-                <div className="subtle">Jump from the definition surface into a specific execution snapshot.</div>
+                <strong>最近运行</strong>
+                <div className="subtle">从定义页直接跳转到某次执行快照。</div>
               </div>
               <span className="metric-chip">{runs.length}</span>
             </div>
@@ -143,7 +143,7 @@ export function WorkflowDetailPage() {
                     <strong>{run.run_id}</strong>
                     <div className="subtle">{run.started_at}</div>
                   </div>
-                  <span className={`status-pill ${toneFromRunStatus(run.status)}`}>{run.status}</span>
+                  <span className={`status-pill ${toneFromRunStatus(run.status)}`}>{localizeRunStatus(run.status)}</span>
                 </button>
               ))}
             </div>
@@ -152,10 +152,10 @@ export function WorkflowDetailPage() {
         <section className="workspace-main panel">
           <div className="panel-header">
             <div>
-              <strong>Definition graph</strong>
-              <div className="subtle">Read the structure first, then inspect or edit the selected node.</div>
+              <strong>定义图</strong>
+              <div className="subtle">先理解结构，再查看或编辑所选节点。</div>
             </div>
-            {selectedNode ? <span className="metric-chip">selected {selectedNode.id}</span> : null}
+            {selectedNode ? <span className="metric-chip">已选 {selectedNode.id}</span> : null}
           </div>
           <WorkflowGraph nodes={graph.nodes} edges={graph.edges} selectedNodeId={selectedNodeId} onSelectNode={loadNode} />
         </section>
@@ -163,8 +163,8 @@ export function WorkflowDetailPage() {
           <section className="panel inspector-note-panel">
             <div className="panel-header">
               <div>
-                <strong>Workflow outputs</strong>
-                <div className="subtle">Final deliverables declared by the live definition.</div>
+                <strong>工作流产物</strong>
+                <div className="subtle">当前定义声明的最终交付物。</div>
               </div>
             </div>
             <div className="tag-cloud">
@@ -173,13 +173,13 @@ export function WorkflowDetailPage() {
                   {output}
                 </span>
               ))}
-              {!workflow?.final_outputs.length ? <div className="empty-state">No final outputs declared.</div> : null}
+              {!workflow?.final_outputs.length ? <div className="empty-state">未声明最终产物。</div> : null}
             </div>
           </section>
-          <NodeInspector data={inspectorData} title="Live node definition" mode="workflow" />
+          <NodeInspector data={inspectorData} title="当前节点定义" mode="workflow" />
           {selectedNodeId ? (
             <button className="primary-button full-width-button" onClick={() => setEditorOpen(true)}>
-              Edit node
+              编辑节点
             </button>
           ) : null}
         </aside>
@@ -219,6 +219,32 @@ export function WorkflowDetailPage() {
       />
     </div>
   );
+}
+
+function localizeNodeType(type: string) {
+  switch (type) {
+    case "llm":
+      return "LLM";
+    case "script":
+      return "脚本";
+    case "router":
+      return "路由";
+    default:
+      return type;
+  }
+}
+
+function localizeRunStatus(status: string) {
+  switch (status.toLowerCase()) {
+    case "success":
+      return "成功";
+    case "failed":
+      return "失败";
+    case "running":
+      return "运行中";
+    default:
+      return "空闲";
+  }
 }
 
 function toneFromNodeType(type: string) {

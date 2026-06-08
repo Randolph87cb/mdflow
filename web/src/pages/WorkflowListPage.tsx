@@ -28,32 +28,30 @@ export function WorkflowListPage() {
     <div className="page workflow-list-page">
       <section className="hero-panel panel">
         <div className="hero-copy">
-          <div className="eyebrow">Local Control Room</div>
-          <h1>Workflow Studio</h1>
+          <div className="eyebrow">本地控制台</div>
+          <h1>mdflow 工作流工作台</h1>
           <p>
-            Traverse the local workspace, branch definitions safely, and jump straight into the runs that matter without
-            leaving the debugging surface.
+            浏览本地工作区，安全地复制工作流定义，并直接跳转到关键运行记录，不离开当前调试界面。
           </p>
           <div className="hero-caption">
-            Three surfaces, one loop: discover workflows, understand the live definition, then debug a single run in
-            detail.
+            三个页面，一个闭环：先发现工作流，再理解当前定义，最后进入某次运行做细致调试。
           </div>
         </div>
         <div className="hero-metrics">
           <div className="hero-metric">
-            <span className="meta-label">Workflows</span>
+            <span className="meta-label">工作流</span>
             <strong>{workflowCount}</strong>
           </div>
           <div className="hero-metric">
-            <span className="meta-label">With recent runs</span>
+            <span className="meta-label">近期有运行</span>
             <strong>{recentRunCount}</strong>
           </div>
           <div className="hero-metric">
-            <span className="meta-label">Running now</span>
+            <span className="meta-label">运行中</span>
             <strong>{runningCount}</strong>
           </div>
           <div className="hero-metric">
-            <span className="meta-label">Needs attention</span>
+            <span className="meta-label">需要关注</span>
             <strong>{failedCount}</strong>
           </div>
         </div>
@@ -61,10 +59,10 @@ export function WorkflowListPage() {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <strong>Workflow Registry</strong>
-            <div className="subtle">Open a workflow, trigger a run, or clone it into a new local variant.</div>
+            <strong>工作流目录</strong>
+            <div className="subtle">打开工作流、发起运行，或复制出新的本地变体。</div>
           </div>
-          <span className="metric-chip">{workflowCount} loaded</span>
+          <span className="metric-chip">已加载 {workflowCount} 个</span>
         </div>
         <WorkflowTable items={items} onRun={setRunWorkflowId} onCopy={setCopyWorkflowId} />
       </section>

@@ -23,13 +23,13 @@ export function OutputBrowser({ items, selected, active, onSelect, onToggle, onD
     <section className="panel">
       <div className="panel-header">
         <div>
-          <strong>Outputs</strong>
+          <strong>产物文件</strong>
           <div className="subtle">
-            {items.length} files{selectedCount ? ` · ${selectedCount} selected` : ""}
+            {items.length} 个文件{selectedCount ? ` · 已选 ${selectedCount} 个` : ""}
           </div>
         </div>
         <button className="ghost-button" onClick={onDownloadZip}>
-          {selectedCount ? `Download ${selectedCount} files` : "Download zip"}
+          {selectedCount ? `下载所选 ${selectedCount} 个文件` : "下载 zip 包"}
         </button>
       </div>
       <div className="output-list">
@@ -55,11 +55,11 @@ export function OutputBrowser({ items, selected, active, onSelect, onToggle, onD
               <div className="output-name-row">
                 <div>{item.name}</div>
                 <span className="metric-chip metric-chip-compact">
-                  {item.previewable ? "preview" : "binary"}
+                  {item.previewable ? "可预览" : "二进制"}
                 </span>
               </div>
               <div className="subtle">
-                {item.path} · {item.size} bytes {item.previewable ? "· preview" : "· binary"}
+                {item.path} · {item.size} 字节 {item.previewable ? "· 可预览" : "· 二进制"}
               </div>
             </div>
           </div>

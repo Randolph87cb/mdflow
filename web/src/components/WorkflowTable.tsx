@@ -9,7 +9,7 @@ type Props = {
 
 export function WorkflowTable({ items, onRun, onCopy }: Props) {
   if (items.length === 0) {
-    return <div className="empty-state">No workflows found in the local workspace.</div>;
+    return <div className="empty-state">当前本地工作区中没有找到工作流。</div>;
   }
 
   return (
@@ -19,54 +19,67 @@ export function WorkflowTable({ items, onRun, onCopy }: Props) {
           <div className="workflow-card-main">
             <div className="workflow-card-title-row">
               <div>
-                <div className="meta-label">Workflow</div>
+                <div className="meta-label">工作流</div>
                 <div className="workflow-card-title">
                   <div className="table-primary">{item.workflow_id}</div>
                   <span className={`status-pill ${toneFromStatus(item.latest_run?.status)}`}>
-                    {item.latest_run?.status || "Idle"}
+                    {localizeRunStatus(item.latest_run?.status)}
                   </span>
                 </div>
               </div>
               {item.latest_run ? (
                 <Link className="button-link" to={`/workflows/${item.workflow_id}/runs/${item.latest_run.run_id}`}>
-                  Open latest run
+                  打开最新运行
                 </Link>
               ) : null}
             </div>
             <div className="workflow-card-copy">
               <strong>{item.name || item.workflow_id}</strong>
-              <div className="subtle">Review the live graph, edit node Markdown, or step into recent execution evidence.</div>
+              <div className="subtle">查看当前图结构、编辑节点 Markdown，或进入最近一次执行详情。</div>
             </div>
             <div className="workflow-meta-grid">
               <div>
-                <span className="meta-label">Nodes</span>
+                <span className="meta-label">节点数</span>
                 <strong>{item.node_count}</strong>
               </div>
               <div>
-                <span className="meta-label">Latest run</span>
+                <span className="meta-label">最新运行</span>
                 <strong>{item.latest_run?.run_id || "-"}</strong>
               </div>
               <div>
-                <span className="meta-label">Started</span>
+                <span className="meta-label">开始时间</span>
                 <strong>{item.latest_run?.started_at || "-"}</strong>
               </div>
             </div>
           </div>
           <div className="actions-cell">
             <Link className="button-link" to={`/workflows/${item.workflow_id}`}>
-              Open
+              打开
             </Link>
             <button className="ghost-button" onClick={() => onRun(item.workflow_id)}>
-              Run
+              运行
             </button>
             <button className="ghost-button" onClick={() => onCopy(item.workflow_id)}>
-              Copy
+              复制
             </button>
           </div>
         </article>
       ))}
     </div>
   );
+}
+
+function localizeRunStatus(status?: string | null) {
+  switch ((status || "").toLowerCase()) {
+    case "success":
+      return "成功";
+    case "failed":
+      return "失败";
+    case "running":
+      return "运行中";
+    default:
+      return "空闲";
+  }
 }
 
 function toneFromStatus(status?: string | null) {

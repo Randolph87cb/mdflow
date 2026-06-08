@@ -31,17 +31,17 @@ export function NodeEditorDrawer({ open, workflowId, nodeId, initialContent, onC
         <div className="panel-header">
           <div className="modal-title-block">
             <strong>
-              Edit {workflowId} / {nodeId}
+              编辑 {workflowId} / {nodeId}
             </strong>
-            <div className="subtle">Update the live Markdown definition for the selected node.</div>
+            <div className="subtle">更新所选节点的实时 Markdown 定义。</div>
           </div>
           <button type="button" className="ghost-button" onClick={onClose}>
-            Close
+            关闭
           </button>
         </div>
         <textarea className="editor-textarea" value={content} onChange={(e) => setContent(e.target.value)} />
         <div className="modal-actions">
-          <button type="submit">Save</button>
+          <button type="submit">保存</button>
         </div>
       </form>
     </div>

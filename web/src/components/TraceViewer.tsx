@@ -16,7 +16,7 @@ type Props = {
   } | null;
 };
 
-export function TraceViewer({ trace, title = "Trace", subtitle }: Props) {
+export function TraceViewer({ trace, title = "执行跟踪", subtitle }: Props) {
   if (!trace) {
     return (
       <section className="panel trace-panel">
@@ -26,20 +26,20 @@ export function TraceViewer({ trace, title = "Trace", subtitle }: Props) {
             {subtitle ? <div className="subtle">{subtitle}</div> : null}
           </div>
         </div>
-        <div className="empty-state">Select a run node to see trace.</div>
+        <div className="empty-state">选择运行节点后可查看执行跟踪。</div>
       </section>
     );
   }
   const sections = [
-    ["Input", trace.input],
-    ["Prompt", trace.prompt],
-    ["Stdout", trace.stdout],
-    ["Stderr", trace.stderr],
-    ["Output", trace.output],
+    ["输入", trace.input],
+    ["提示词", trace.prompt],
+    ["标准输出", trace.stdout],
+    ["标准错误", trace.stderr],
+    ["输出", trace.output],
     [
-      "Route Match",
+      "路由匹配",
       trace.route_selected
-        ? `selected_next: ${trace.route_selected.selected_next ?? "-"}\nsource: ${trace.route_selected.route_source ?? "-"}\noperator: ${trace.route_selected.route_operator ?? "-"}`
+        ? `选中下一节点: ${trace.route_selected.selected_next ?? "-"}\n来源: ${trace.route_selected.route_source ?? "-"}\n操作符: ${trace.route_selected.route_operator ?? "-"}`
         : null,
     ],
   ].filter(([, value]) => value);
@@ -52,17 +52,17 @@ export function TraceViewer({ trace, title = "Trace", subtitle }: Props) {
           {subtitle ? <div className="subtle">{subtitle}</div> : null}
         </div>
         <div className="trace-header-meta">
-          {trace.attempt ? <span className="metric-chip">attempt {trace.attempt}</span> : null}
-          <span className="subtle">{sections.length} sections</span>
+          {trace.attempt ? <span className="metric-chip">第 {trace.attempt} 次尝试</span> : null}
+          <span className="subtle">{sections.length} 个区块</span>
         </div>
       </div>
       <div className="trace-viewer">
-        {sections.length === 0 ? <div className="empty-state">No trace content.</div> : null}
+        {sections.length === 0 ? <div className="empty-state">暂无跟踪内容。</div> : null}
         {sections.map(([label, value]) => (
           <section key={label} className="trace-block">
             <div className="trace-block-header">
               <strong>{label}</strong>
-              <span className="meta-label">trace section</span>
+              <span className="meta-label">跟踪区块</span>
             </div>
             <pre className="code-block">{value}</pre>
           </section>

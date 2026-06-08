@@ -88,8 +88,8 @@ export function RunDetailPage() {
   );
   const failedNodeId = detail?.state.last_failure?.node_id ?? null;
   const traceSubtitle = selectedGraphNode
-    ? `${selectedGraphNode.id} · ${selectedGraphNode.type}${selectedGraphNode.status ? ` · ${selectedGraphNode.status}` : ""}`
-    : "Execution evidence for the selected node.";
+    ? `${selectedGraphNode.id} · ${localizeNodeType(selectedGraphNode.type)}${selectedGraphNode.status ? ` · ${localizeRunStatus(selectedGraphNode.status)}` : ""}`
+    : "所选节点的执行证据。";
 
   return (
     <div className="page run-detail-page">
@@ -112,10 +112,10 @@ export function RunDetailPage() {
         <section className="panel run-graph-panel">
           <div className="panel-header">
             <div>
-              <strong>Run graph</strong>
-              <div className="subtle">Focus a node to inspect its trace, snapshot definition, and rerun boundary.</div>
+              <strong>运行图</strong>
+              <div className="subtle">聚焦节点后可查看跟踪、快照定义以及重新运行边界。</div>
             </div>
-            {selectedGraphNode ? <span className="metric-chip">{selectedGraphNode.type}</span> : null}
+            {selectedGraphNode ? <span className="metric-chip">{localizeNodeType(selectedGraphNode.type)}</span> : null}
           </div>
           <WorkflowGraph
             nodes={detail?.graph.nodes ?? []}
@@ -126,17 +126,17 @@ export function RunDetailPage() {
           <div className="run-graph-footer">
             <div className="selected-node-card">
               <div className="selected-node-header">
-                <strong>{selectedGraphNode?.id || "No node selected"}</strong>
+                <strong>{selectedGraphNode?.id || "未选择节点"}</strong>
                 {selectedGraphNode ? (
                   <span className={`status-pill ${toneFromNodeStatus(selectedGraphNode.status)}`}>
-                    {selectedGraphNode.status || selectedGraphNode.type}
+                    {selectedGraphNode.status ? localizeRunStatus(selectedGraphNode.status) : localizeNodeType(selectedGraphNode.type)}
                   </span>
                 ) : null}
               </div>
               <div className="subtle">
                 {selectedGraphNode
-                  ? `type ${selectedGraphNode.type} · attempts ${selectedGraphNode.attempts ?? 0}${failedNodeId === selectedGraphNode.id ? " · last failure" : ""}`
-                  : "Select a node from the graph to inspect trace and rerun from that point."}
+                  ? `类型 ${localizeNodeType(selectedGraphNode.type)} · 尝试 ${selectedGraphNode.attempts ?? 0} 次${failedNodeId === selectedGraphNode.id ? " · 最近失败节点" : ""}`
+                  : "选择图中的节点后，可查看执行跟踪并从该节点重新运行。"}
               </div>
             </div>
             {selectedNodeId ? (
@@ -147,14 +147,14 @@ export function RunDetailPage() {
                   window.location.href = `/workflows/${workflowId}/runs/${result.run_id}`;
                 }}
               >
-                Rerun from selected node
+                从所选节点重新运行
               </button>
             ) : null}
           </div>
         </section>
         <div className="run-center">
-          <TraceViewer trace={nodeData?.trace ?? null} title="Trace" subtitle={traceSubtitle} />
-          <NodeInspector data={nodeData} title="Snapshot node definition" mode="run" />
+          <TraceViewer trace={nodeData?.trace ?? null} title="执行跟踪" subtitle={traceSubtitle} />
+          <NodeInspector data={nodeData} title="快照节点定义" mode="run" />
         </div>
         <div className="run-right">
           <OutputBrowser
@@ -182,6 +182,32 @@ export function RunDetailPage() {
       </div>
     </div>
   );
+}
+
+function localizeNodeType(type: string) {
+  switch (type) {
+    case "llm":
+      return "LLM";
+    case "script":
+      return "脚本";
+    case "router":
+      return "路由";
+    default:
+      return type;
+  }
+}
+
+function localizeRunStatus(status: string) {
+  switch (status.toLowerCase()) {
+    case "success":
+      return "成功";
+    case "failed":
+      return "失败";
+    case "running":
+      return "运行中";
+    default:
+      return "空闲";
+  }
 }
 
 function toneFromNodeStatus(status?: string) {

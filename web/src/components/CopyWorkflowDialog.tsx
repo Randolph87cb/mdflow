@@ -29,30 +29,30 @@ export function CopyWorkflowDialog({ open, workflowId, onClose, onSubmit }: Prop
     <div className="modal-backdrop">
       <form className="modal" onSubmit={handleSubmit}>
         <div className="modal-title-block">
-          <h3>Copy workflow</h3>
-          <div className="subtle">Create a parallel local workflow ID while keeping the current definition intact.</div>
+          <h3>复制工作流</h3>
+          <div className="subtle">在保留当前定义不变的前提下，新建一个并行的本地工作流 ID。</div>
         </div>
         <label>
-          New Workflow ID
+          新工作流 ID
           <input value={newWorkflowId} onChange={(e) => setNewWorkflowId(e.target.value)} />
         </label>
         <label>
-          New Name
+          新名称
           <input value={newName} onChange={(e) => setNewName(e.target.value)} />
         </label>
         <label className="checkbox-line">
           <input type="checkbox" checked={copyScripts} onChange={(e) => setCopyScripts(e.target.checked)} />
-          Copy scripts
+          复制脚本
         </label>
         <label className="checkbox-line">
           <input type="checkbox" checked={copyInputs} onChange={(e) => setCopyInputs(e.target.checked)} />
-          Copy inputs
+          复制输入
         </label>
         <div className="modal-actions">
           <button type="button" onClick={onClose}>
-            Cancel
+            取消
           </button>
-          <button type="submit">Copy</button>
+          <button type="submit">复制</button>
         </div>
       </form>
     </div>

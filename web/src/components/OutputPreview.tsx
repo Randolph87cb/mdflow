@@ -10,25 +10,25 @@ export function OutputPreview({ data, downloadHref }: Props) {
     <section className="panel">
       <div className="panel-header">
         <div>
-          <strong>Output Preview</strong>
+          <strong>产物预览</strong>
           <div className="subtle">
-            {data ? `${data.name} · ${data.path}` : "No file selected"}
+            {data ? `${data.name} · ${data.path}` : "未选择文件"}
           </div>
         </div>
         <div className="actions-cell">
           {data ? (
-            <span className="metric-chip metric-chip-compact">{data.previewable ? "text preview" : "binary file"}</span>
+            <span className="metric-chip metric-chip-compact">{data.previewable ? "文本预览" : "二进制文件"}</span>
           ) : null}
           {downloadHref ? (
             <a className="button-link" href={downloadHref} target="_blank" rel="noreferrer">
-              Download
+              下载
             </a>
           ) : null}
         </div>
       </div>
-      {!data ? <div className="empty-state">Select an output file.</div> : null}
+      {!data ? <div className="empty-state">请选择要预览的产物文件。</div> : null}
       {data && data.previewable ? <pre className="code-block">{data.content}</pre> : null}
-      {data && !data.previewable ? <div className="empty-state">Binary or non-text output. Use download.</div> : null}
+      {data && !data.previewable ? <div className="empty-state">这是二进制或非文本产物，请使用下载。</div> : null}
     </section>
   );
 }
