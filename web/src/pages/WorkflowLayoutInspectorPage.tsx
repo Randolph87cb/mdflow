@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type PropsWithChildren, type SetStateAction } from "react";
 import { Link } from "react-router-dom";
 import { WorkflowOverviewWorkbench } from "../components/WorkflowOverviewWorkbench";
 import {
@@ -37,8 +37,11 @@ export function WorkflowLayoutInspectorPage() {
   const [nodeMap, setNodeMap] = useState<Record<string, WorkflowDomInspectorNode>>({});
   const [overrides, setOverrides] = useState<WorkflowDomStyleOverrides>({});
   const [hydrated, setHydrated] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [domPanelOpen, setDomPanelOpen] = useState(true);
+  const [stylePanelOpen, setStylePanelOpen] = useState(true);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [domPanelPosition, setDomPanelPosition] = useState({ x: 1460, y: 92 });
+  const [stylePanelPosition, setStylePanelPosition] = useState({ x: 1020, y: 112 });
 
   useEffect(() => {
     setOverrides(readWorkflowDomStyleOverrides());
@@ -162,13 +165,13 @@ export function WorkflowLayoutInspectorPage() {
     const nextId = nextElement.dataset.domInspectorId;
     if (!nextId) return;
     setSelectedId(nextId);
-    setPanelOpen(true);
+    setStylePanelOpen(true);
     setExpandedIds((current) => expandBranch(nextId, current));
   }
 
   function selectNode(nodeId: string) {
     setSelectedId(nodeId);
-    setPanelOpen(true);
+    setStylePanelOpen(true);
     setExpandedIds((current) => expandBranch(nodeId, current));
     const stage = stageRef.current;
     const target = stage?.querySelector<HTMLElement>(`[data-dom-inspector-id="${cssEscape(nodeId)}"]`);
@@ -188,99 +191,158 @@ export function WorkflowLayoutInspectorPage() {
         <WorkflowOverviewWorkbench />
       </div>
 
-      <div className="layout-inspector-toolbar">
-        <div className="layout-inspector-toolbar-card">
-          <div className="layout-inspector-toolbar-copy">
-            <div>
-              <strong>Inspector</strong>
-              <div className="subtle">
-                {selectedNode ? `当前元素：${selectedNode.label}` : "点击页面或树节点，选中任意 DOM 元素"}
-              </div>
-            </div>
-          </div>
-          <div className="layout-inspector-toolbar-actions">
-            <button className="ghost-button" type="button" onClick={() => setPanelOpen((current) => !current)}>
-              {panelOpen ? "隐藏设置窗" : "显示设置窗"}
-            </button>
-            <button className="ghost-button" type="button" onClick={resetAll}>
-              清空全部覆盖
-            </button>
-            <Link className="ghost-button" to="/">
-              返回首页
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <aside className={`layout-inspector-sidebar panel ${panelOpen ? "open" : "closed"}`}>
-        <div className="layout-inspector-sidebar-handle">
-          <button className="ghost-button" type="button" onClick={() => setPanelOpen((current) => !current)}>
-            {panelOpen ? "收起" : "展开"}
+      <DraggableInspectorWindow
+        title="DOM 树"
+        open={domPanelOpen}
+        onToggle={() => setDomPanelOpen((current) => !current)}
+        position={domPanelPosition}
+        onPositionChange={setDomPanelPosition}
+        className="layout-inspector-window layout-inspector-window-dom panel"
+      >
+        <div className="layout-inspector-window-toolbar">
+          <button className="ghost-button" type="button" onClick={resetAll}>
+            清空全部覆盖
           </button>
+          <button className="ghost-button" type="button" onClick={() => setStylePanelOpen((current) => !current)}>
+            {stylePanelOpen ? "隐藏值窗" : "显示值窗"}
+          </button>
+          <Link className="ghost-button" to="/">
+            返回首页
+          </Link>
         </div>
-        {panelOpen ? (
-          <>
-            <div className="panel-header">
-              <div>
-                <strong>DOM 设置</strong>
-                <div className="subtle">现在是整页 DOM 树。点树节点会跳到页面里的对应元素。</div>
-              </div>
+        <div className="layout-inspector-window-body">
+          <div className="layout-inspector-section">
+            <div className="subtle">
+              点击树节点会跳到页面里的对应 DOM。直接点页面元素，也会在这里同步选中。
             </div>
-
-            <div className="layout-inspector-sidebar-body">
-              <div className="layout-inspector-section">
-                <div className="meta-label">DOM 树</div>
-                <div className="layout-inspector-tree">
-                  {tree ? (
-                    <DomTreeNode
-                      node={tree}
-                      selectedId={selectedId}
-                      expandedIds={expandedIds}
-                      onSelect={selectNode}
-                      onToggle={toggleExpanded}
-                    />
-                  ) : (
-                    <div className="subtle">正在读取页面 DOM…</div>
-                  )}
-                </div>
-              </div>
-
-              <div className="layout-inspector-section">
-                <div className="layout-inspector-selection-head">
-                  <div>
-                    <div className="meta-label">当前元素</div>
-                    <strong>{selectedNode?.label ?? "未选中元素"}</strong>
-                    {selectedNode ? <div className="subtle">{selectedNode.descriptor}</div> : null}
-                  </div>
-                  <button className="ghost-button" type="button" onClick={clearSelected} disabled={!selectedId}>
-                    清空当前元素
-                  </button>
-                </div>
-                <div className="layout-inspector-field-grid">
-                  {EDITABLE_FIELDS.map((field) => (
-                    <label key={field} className="layout-inspector-field">
-                      <span>{WORKFLOW_LAYOUT_FIELD_LABELS[field]}</span>
-                      <input
-                        type="text"
-                        value={selectedOverride[field] ?? ""}
-                        onChange={(event) => updateField(field, event.target.value)}
-                        placeholder={getFieldPlaceholder(field)}
-                        disabled={!selectedId}
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="layout-inspector-section">
-                <div className="meta-label">当前配置</div>
-                <pre className="code-block layout-inspector-code">{configPreview}</pre>
-              </div>
+          </div>
+          <div className="layout-inspector-section">
+            <div className="meta-label">DOM 树</div>
+            <div className="layout-inspector-tree">
+              {tree ? (
+                <DomTreeNode
+                  node={tree}
+                  selectedId={selectedId}
+                  expandedIds={expandedIds}
+                  onSelect={selectNode}
+                  onToggle={toggleExpanded}
+                />
+              ) : (
+                <div className="subtle">正在读取页面 DOM…</div>
+              )}
             </div>
-          </>
-        ) : null}
-      </aside>
+          </div>
+        </div>
+      </DraggableInspectorWindow>
+
+      <DraggableInspectorWindow
+        title="样式值"
+        open={stylePanelOpen}
+        onToggle={() => setStylePanelOpen((current) => !current)}
+        position={stylePanelPosition}
+        onPositionChange={setStylePanelPosition}
+        className="layout-inspector-window layout-inspector-window-style panel"
+      >
+        <div className="layout-inspector-window-body">
+          <div className="layout-inspector-selection-head">
+            <div>
+              <div className="meta-label">当前元素</div>
+              <strong>{selectedNode?.label ?? "未选中元素"}</strong>
+              {selectedNode ? <div className="subtle">{selectedNode.descriptor}</div> : null}
+            </div>
+            <button className="ghost-button" type="button" onClick={clearSelected} disabled={!selectedId}>
+              清空当前元素
+            </button>
+          </div>
+          <div className="layout-inspector-field-grid">
+            {EDITABLE_FIELDS.map((field) => (
+              <label key={field} className="layout-inspector-field">
+                <span>{WORKFLOW_LAYOUT_FIELD_LABELS[field]}</span>
+                <input
+                  type="text"
+                  value={selectedOverride[field] ?? ""}
+                  onChange={(event) => updateField(field, event.target.value)}
+                  placeholder={getFieldPlaceholder(field)}
+                  disabled={!selectedId}
+                />
+              </label>
+            ))}
+          </div>
+          <div className="layout-inspector-section">
+            <div className="meta-label">当前配置</div>
+            <pre className="code-block layout-inspector-code">{configPreview}</pre>
+          </div>
+        </div>
+      </DraggableInspectorWindow>
     </div>
+  );
+}
+
+type DraggableInspectorWindowProps = PropsWithChildren<{
+  className: string;
+  onPositionChange: Dispatch<SetStateAction<{ x: number; y: number }>>;
+  onToggle: () => void;
+  open: boolean;
+  position: { x: number; y: number };
+  title: string;
+}>;
+
+function DraggableInspectorWindow({
+  children,
+  className,
+  onPositionChange,
+  onToggle,
+  open,
+  position,
+  title,
+}: DraggableInspectorWindowProps) {
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if ((event.target as HTMLElement).closest("button, a, input, textarea, select")) {
+      return;
+    }
+
+    dragOffsetRef.current = {
+      x: event.clientX - position.x,
+      y: event.clientY - position.y,
+    };
+
+    const move = (moveEvent: PointerEvent) => {
+      onPositionChange({
+        x: Math.max(8, moveEvent.clientX - dragOffsetRef.current.x),
+        y: Math.max(8, moveEvent.clientY - dragOffsetRef.current.y),
+      });
+    };
+
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  return (
+    <aside
+      className={className}
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+      }}
+    >
+      <div className="layout-inspector-window-head" onPointerDown={handlePointerDown}>
+        <div className="layout-inspector-window-title">
+          <strong>{title}</strong>
+          <span className="subtle">拖动标题栏可移动位置</span>
+        </div>
+        <button className="ghost-button" type="button" onClick={onToggle}>
+          {open ? "收起" : "展开"}
+        </button>
+      </div>
+      {open ? children : null}
+    </aside>
   );
 }
 

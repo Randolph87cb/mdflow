@@ -829,41 +829,46 @@ a:focus-visible,
   outline-offset: 3px;
 }
 
-.layout-inspector-toolbar {
+.layout-inspector-window {
   position: fixed;
-  top: 22px;
-  right: 22px;
-  z-index: 40;
-  pointer-events: none;
-}
-
-.layout-inspector-toolbar-card {
+  z-index: 48;
+  width: min(440px, calc(100vw - 44px));
+  max-height: min(78vh, 860px);
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  max-width: min(720px, calc(100vw - 64px));
-  padding: 12px 14px;
-  border: 1px solid rgba(203, 184, 255, 0.34);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 34px rgba(195, 180, 219, 0.22);
-  backdrop-filter: blur(18px);
-  pointer-events: auto;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
 }
 
-.layout-inspector-toolbar-copy {
+.layout-inspector-window-dom {
+  width: min(420px, calc(100vw - 44px));
+}
+
+.layout-inspector-window-style {
+  width: min(460px, calc(100vw - 44px));
+}
+
+.layout-inspector-window-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(203, 184, 255, 0.18);
+  background: rgba(255, 250, 252, 0.92);
+  cursor: grab;
+}
+
+.layout-inspector-window-head:active {
+  cursor: grabbing;
+}
+
+.layout-inspector-window-title {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
-}
-
-.layout-inspector-toolbar-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-left: auto;
 }
 
 .layout-inspectable {
@@ -916,35 +921,20 @@ a:focus-visible,
   pointer-events: none;
 }
 
-.layout-inspector-sidebar {
-  position: fixed;
-  top: 92px;
-  right: 22px;
-  z-index: 45;
-  width: min(420px, calc(100vw - 44px));
-  max-height: calc(100vh - 114px);
+.layout-inspector-window-toolbar,
+.layout-inspector-window-body {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(20px);
 }
 
-.layout-inspector-sidebar.closed {
-  width: auto;
+.layout-inspector-window-toolbar {
+  gap: 8px;
+  padding: 14px 16px 0;
 }
 
-.layout-inspector-sidebar-handle {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 14px 0;
-}
-
-.layout-inspector-sidebar-body {
-  display: flex;
+.layout-inspector-window-body {
   flex: 1;
   min-height: 0;
-  flex-direction: column;
   gap: 18px;
   padding: 18px;
   overflow: auto;
@@ -1638,17 +1628,8 @@ body:has(.workflow-layout-inspector-page) .app-main {
     grid-template-columns: 1fr;
   }
 
-  .layout-inspector-toolbar {
-    left: 22px;
-    right: 22px;
-  }
-
-  .layout-inspector-toolbar-card {
-    max-width: none;
-  }
-
-  .layout-inspector-sidebar {
-    width: min(420px, calc(100vw - 44px));
+  .layout-inspector-window {
+    max-width: calc(100vw - 44px);
   }
 
   .workflow-overview-action-grid {
@@ -1675,15 +1656,6 @@ body:has(.workflow-layout-inspector-page) .app-main {
 
   .layout-inspector-field-grid {
     grid-template-columns: 1fr;
-  }
-
-  .layout-inspector-toolbar-card {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .layout-inspector-toolbar-actions {
-    margin-left: 0;
   }
 
   .workflow-current-meta {
@@ -1734,19 +1706,16 @@ body:has(.workflow-layout-inspector-page) .app-main {
     grid-template-columns: 1fr;
   }
 
-  .layout-inspector-toolbar {
-    top: 12px;
-    left: 16px;
-    right: 16px;
-  }
-
-  .layout-inspector-sidebar {
-    top: auto;
-    right: 16px;
+  .layout-inspector-window {
+    left: 16px !important;
+    top: auto !important;
     bottom: 16px;
-    left: 16px;
     width: auto;
     max-height: min(70vh, 720px);
+  }
+
+  .layout-inspector-window-dom {
+    bottom: calc(min(70vh, 720px) + 28px);
   }
 
   .workflow-overview-graph-frame,
