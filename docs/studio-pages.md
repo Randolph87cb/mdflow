@@ -26,21 +26,42 @@
 
 一句话职责：
 
-> 找到 workflow，快速进入、运行、复制。
+> 在首页完成 workflow 选择、当前摘要查看、关键操作和结构预览。
 
 ### 应承载的功能
 
-- 展示 workflow 列表
-- 展示 workflow 基本信息
+- 四区工作台布局
+  - 顶部红色区：当前 workflow 信息栏
+  - 左侧绿色区：workflow 列表
+  - 右上蓝色区：四个关键操作
+  - 右下黑色区：当前 workflow 节点图预览
+- 顶部当前 workflow 信息栏
+  - `workflow_id`
+  - `name`
+  - `workflow_path`
+  - `entry`
+  - 节点数
+  - final outputs 数
+  - 最近一次 run 状态
+  - 最近一次 run 时间
+  - 最近一次 `run_id`
+- 左侧 workflow 列表
   - `workflow_id`
   - `name`
   - 节点数
   - 最近一次 run 状态
   - 最近一次 run 时间
-- 快捷操作
-  - `Open`
-  - `Run`
-  - `Copy`
+- 四个固定动作
+  - `打开最新运行`
+  - `历史运行列表`
+  - `运行`
+  - `复制`
+- 当前 workflow 节点图预览
+  - graph
+  - 入口节点
+  - 节点数
+  - final outputs 数
+  - workflow_path
 
 ### 不应承载的功能
 
@@ -52,7 +73,8 @@
 ### 页面目标
 
 - 10 秒内找到目标 workflow
-- 1 次点击进入 workflow 详情
+- 不离开首页即可理解当前 workflow 的整体结构
+- 1 次点击进入 workflow 详情或最近一次 run
 - 1 次点击直接发起新 run
 
 ---

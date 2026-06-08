@@ -33,7 +33,11 @@ python -m mdflow.cli serve --host 127.0.0.1 --port 7832
 
 当前 Studio 已支持：
 
-- 查看 workflow 列表
+- 首页四区工作台
+  - 顶部查看当前 workflow 摘要
+  - 左侧切换 workflow 列表
+  - 右上执行关键操作
+  - 右下预览 workflow 节点图
 - 查看 workflow graph、nodes、runs
 - 发起 run
 - 查看 run graph、trace、outputs
@@ -81,6 +85,7 @@ python -m mdflow.cli run problem_gen --input workflows/problem_gen/inputs/defaul
 
 - 目录结构：[docs/project-structure.md](docs/project-structure.md)
 - Studio 页面职责：[docs/studio-pages.md](docs/studio-pages.md)
+- Workflow 首页对齐参考：[docs/ui-reference/workflow-overview-alignment.md](docs/ui-reference/workflow-overview-alignment.md)
 - 节点格式：[docs/node-format.md](docs/node-format.md)
 - 工作流格式：[docs/workflow-format.md](docs/workflow-format.md)
 - 项目配置：[docs/project-config-format.md](docs/project-config-format.md)
