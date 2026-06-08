@@ -18,12 +18,28 @@ export type WorkflowLayoutBlock = {
   zIndex: number;
 };
 
+export type WorkflowLayoutBlockRelativeRect = {
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  heightPct: number;
+};
+
 export type WorkflowLayoutDefinition = {
   canvas: {
     width: number;
     height: number;
   };
   blocks: WorkflowLayoutBlock[];
+};
+
+type StoredWorkflowLayoutBlock = Partial<WorkflowLayoutBlock> & {
+  relative?: Partial<WorkflowLayoutBlockRelativeRect>;
+};
+
+type StoredWorkflowLayoutDefinition = {
+  canvas?: Partial<WorkflowLayoutDefinition["canvas"]>;
+  blocks?: StoredWorkflowLayoutBlock[];
 };
 
 export const WORKFLOW_LAYOUT_STORAGE_KEY = "mdflow.workflow-layout.v1";
@@ -138,7 +154,10 @@ export function readStoredWorkflowLayout(defaultCanvas?: { width: number; height
 
 export function saveWorkflowLayout(layout: WorkflowLayoutDefinition) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(WORKFLOW_LAYOUT_STORAGE_KEY, JSON.stringify(normalizeWorkflowLayout(layout)));
+  window.localStorage.setItem(
+    WORKFLOW_LAYOUT_STORAGE_KEY,
+    JSON.stringify(serializeWorkflowLayout(normalizeWorkflowLayout(layout))),
+  );
 }
 
 export function clearWorkflowLayout() {
@@ -147,7 +166,7 @@ export function clearWorkflowLayout() {
 }
 
 export function normalizeWorkflowLayout(
-  input: Partial<WorkflowLayoutDefinition> | WorkflowLayoutDefinition,
+  input: Partial<StoredWorkflowLayoutDefinition> | StoredWorkflowLayoutDefinition,
   fallbackCanvas?: { width: number; height: number },
 ): WorkflowLayoutDefinition {
   const canvasWidth = clampNumber(input.canvas?.width, 960, 3840, fallbackCanvas?.width ?? 1440);
@@ -160,10 +179,10 @@ export function normalizeWorkflowLayout(
             id: typeof block.id === "string" && block.id ? block.id : `block-${index + 1}`,
             title: typeof block.title === "string" && block.title ? block.title : `模块 ${index + 1}`,
             componentType: isWorkflowComponentType(block.componentType) ? block.componentType : "placeholder",
-            x: clampNumber(block.x, 0, canvas.width, 24 + index * 12),
-            y: clampNumber(block.y, 0, canvas.height, 24 + index * 12),
-            width: clampNumber(block.width, MIN_BLOCK_WIDTH, canvas.width, 320),
-            height: clampNumber(block.height, MIN_BLOCK_HEIGHT, canvas.height, 180),
+            x: readLayoutMetric(block.x, block.relative?.xPct, canvas.width, 24 + index * 12),
+            y: readLayoutMetric(block.y, block.relative?.yPct, canvas.height, 24 + index * 12),
+            width: readLayoutMetric(block.width, block.relative?.widthPct, canvas.width, 320),
+            height: readLayoutMetric(block.height, block.relative?.heightPct, canvas.height, 180),
             zIndex: clampNumber(block.zIndex, 0, 20, 1),
           },
           canvas,
@@ -174,6 +193,17 @@ export function normalizeWorkflowLayout(
   return {
     canvas,
     blocks,
+  };
+}
+
+export function serializeWorkflowLayout(layout: WorkflowLayoutDefinition) {
+  const normalized = normalizeWorkflowLayout(layout);
+  return {
+    canvas: normalized.canvas,
+    blocks: normalized.blocks.map((block) => ({
+      ...block,
+      relative: getWorkflowBlockRelativeRect(block, normalized.canvas),
+    })),
   };
 }
 
@@ -188,12 +218,67 @@ export function getWorkflowBlockStyle(
   block: WorkflowLayoutBlock,
   canvas: WorkflowLayoutDefinition["canvas"],
 ): CSSProperties {
+  const relative = getWorkflowBlockRelativeRect(block, canvas);
   return {
-    left: `${(block.x / canvas.width) * 100}%`,
-    top: `${(block.y / canvas.height) * 100}%`,
-    width: `${(block.width / canvas.width) * 100}%`,
-    height: `${(block.height / canvas.height) * 100}%`,
+    left: `${relative.xPct}%`,
+    top: `${relative.yPct}%`,
+    width: `${relative.widthPct}%`,
+    height: `${relative.heightPct}%`,
     zIndex: block.zIndex,
+  };
+}
+
+export function getWorkflowBlockRelativeRect(
+  block: WorkflowLayoutBlock,
+  canvas: WorkflowLayoutDefinition["canvas"],
+): WorkflowLayoutBlockRelativeRect {
+  return {
+    xPct: roundPercent((block.x / canvas.width) * 100),
+    yPct: roundPercent((block.y / canvas.height) * 100),
+    widthPct: roundPercent((block.width / canvas.width) * 100),
+    heightPct: roundPercent((block.height / canvas.height) * 100),
+  };
+}
+
+export function patchBlockWithRelativeRect(
+  block: WorkflowLayoutBlock,
+  canvas: WorkflowLayoutDefinition["canvas"],
+  relativePatch: Partial<WorkflowLayoutBlockRelativeRect>,
+) {
+  const currentRelative = getWorkflowBlockRelativeRect(block, canvas);
+  return clampBlockToCanvas(
+    {
+      ...block,
+      x:
+        relativePatch.xPct !== undefined
+          ? convertPercentToPixels(relativePatch.xPct, canvas.width, block.x)
+          : convertPercentToPixels(currentRelative.xPct, canvas.width, block.x),
+      y:
+        relativePatch.yPct !== undefined
+          ? convertPercentToPixels(relativePatch.yPct, canvas.height, block.y)
+          : convertPercentToPixels(currentRelative.yPct, canvas.height, block.y),
+      width:
+        relativePatch.widthPct !== undefined
+          ? convertPercentToPixels(relativePatch.widthPct, canvas.width, block.width)
+          : convertPercentToPixels(currentRelative.widthPct, canvas.width, block.width),
+      height:
+        relativePatch.heightPct !== undefined
+          ? convertPercentToPixels(relativePatch.heightPct, canvas.height, block.height)
+          : convertPercentToPixels(currentRelative.heightPct, canvas.height, block.height),
+    },
+    canvas,
+  );
+}
+
+export function resizeWorkflowLayoutToCanvas(
+  layout: WorkflowLayoutDefinition,
+  nextCanvas: WorkflowLayoutDefinition["canvas"],
+) {
+  return {
+    canvas: nextCanvas,
+    blocks: layout.blocks.map((block) =>
+      patchBlockWithRelativeRect(block, nextCanvas, getWorkflowBlockRelativeRect(block, layout.canvas)),
+    ),
   };
 }
 
@@ -217,6 +302,25 @@ export function clampBlockToCanvas(
 function clampNumber(value: unknown, min: number, max: number, fallback: number) {
   const numberValue = typeof value === "number" && Number.isFinite(value) ? value : fallback;
   return Math.min(max, Math.max(min, Math.round(numberValue)));
+}
+
+function readLayoutMetric(pxValue: unknown, percentValue: unknown, axisSize: number, fallback: number) {
+  if (typeof pxValue === "number" && Number.isFinite(pxValue)) {
+    return Math.round(pxValue);
+  }
+  if (typeof percentValue === "number" && Number.isFinite(percentValue)) {
+    return convertPercentToPixels(percentValue, axisSize, fallback);
+  }
+  return fallback;
+}
+
+function convertPercentToPixels(percent: number, axisSize: number, fallback: number) {
+  if (!Number.isFinite(percent)) return fallback;
+  return Math.round((percent / 100) * axisSize);
+}
+
+function roundPercent(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 function isWorkflowComponentType(value: unknown): value is WorkflowLayoutComponentType {

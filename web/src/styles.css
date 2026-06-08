@@ -1463,6 +1463,17 @@ a:focus-visible,
   align-items: center;
 }
 
+.layout-lab-unit-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.layout-lab-unit-toggle .secondary-button.active {
+  border-color: rgba(120, 148, 255, 0.62);
+  background: linear-gradient(135deg, rgba(232, 239, 255, 0.96), rgba(255, 241, 246, 0.96));
+  box-shadow: 0 10px 22px rgba(157, 173, 216, 0.2);
+}
+
 .layout-lab-status {
   padding: 14px 16px;
   border-radius: 18px;
@@ -1750,6 +1761,10 @@ a:focus-visible,
 
   .layout-lab-toolbar {
     align-items: flex-start;
+  }
+
+  .layout-lab-unit-toggle {
+    width: 100%;
   }
 
   .layout-lab-canvas {
