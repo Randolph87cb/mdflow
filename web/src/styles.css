@@ -811,6 +811,186 @@ a:focus-visible,
   padding: 28px 20px 32px;
 }
 
+.workflow-layout-inspector-page {
+  min-height: calc(100vh - 44px);
+}
+
+.layout-inspector-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) 380px;
+  gap: 18px;
+  align-items: start;
+}
+
+.layout-inspector-stage,
+.layout-inspector-sidebar {
+  min-height: calc(100vh - 64px);
+}
+
+.layout-inspector-stage {
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-inspector-stage-header {
+  align-items: flex-start;
+}
+
+.layout-inspector-stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.layout-inspector-canvas {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  background:
+    linear-gradient(rgba(214, 197, 230, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(214, 197, 230, 0.2) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 253, 250, 0.96) 0%, rgba(249, 245, 255, 0.96) 100%);
+  background-size: 28px 28px, 28px 28px, auto;
+}
+
+.workflow-overview-page-inspector {
+  min-width: 1100px;
+}
+
+.layout-inspectable {
+  position: relative;
+}
+
+.layout-inspectable::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px dashed rgba(141, 168, 255, 0.42);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease-out, border-color 160ms ease-out;
+}
+
+.layout-inspectable::before {
+  content: attr(data-layout-label);
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(36, 49, 70, 0.84);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease-out, transform 160ms ease-out;
+  transform: translateY(-2px);
+}
+
+.layout-inspectable:hover::after,
+.layout-inspectable:hover::before,
+.layout-inspectable.selected::after,
+.layout-inspectable.selected::before {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.layout-inspectable.selected::after {
+  border-color: rgba(255, 143, 173, 0.88);
+}
+
+.layout-inspector-passive {
+  pointer-events: none;
+}
+
+.layout-inspector-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-inspector-sidebar-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px;
+  overflow: auto;
+}
+
+.layout-inspector-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.layout-inspector-target-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.layout-inspector-target {
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(203, 184, 255, 0.3);
+  background: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text);
+}
+
+.layout-inspector-target.active {
+  border-color: rgba(141, 168, 255, 0.72);
+  background: linear-gradient(180deg, rgba(255, 246, 250, 0.98) 0%, rgba(241, 247, 255, 0.98) 100%);
+  box-shadow: 0 12px 24px rgba(189, 179, 217, 0.18);
+}
+
+.layout-inspector-selection-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.layout-inspector-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.layout-inspector-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #4d5a77;
+  font-weight: 700;
+}
+
+.layout-inspector-field span {
+  font-size: 12px;
+}
+
+.layout-inspector-field input {
+  width: 100%;
+  border: 2px solid rgba(203, 184, 255, 0.24);
+  border-radius: 18px;
+  padding: 11px 13px;
+  background: rgba(255, 252, 248, 0.96);
+  color: var(--text);
+}
+
+.layout-inspector-code {
+  max-height: 280px;
+}
+
 .workflow-card-list,
 .list-panel,
 .output-list {
@@ -1364,6 +1544,15 @@ a:focus-visible,
     grid-template-columns: 1fr;
   }
 
+  .layout-inspector-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-inspector-stage,
+  .layout-inspector-sidebar {
+    min-height: 0;
+  }
+
   .workflow-overview-action-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1383,6 +1572,10 @@ a:focus-visible,
   }
 
   .workflow-overview-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-inspector-field-grid {
     grid-template-columns: 1fr;
   }
 
