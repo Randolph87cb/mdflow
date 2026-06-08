@@ -7,7 +7,7 @@ export type WorkflowLayoutComponentType =
   | "workflow-graph"
   | "placeholder";
 
-export type WorkflowLayoutUnit = "px" | "percent";
+export type WorkflowLayoutUnit = "px" | "percent" | "fill";
 
 export type WorkflowLayoutField = "x" | "y" | "width" | "height";
 
@@ -87,9 +87,9 @@ export function createDefaultWorkflowLayout(canvasWidth = 1440, canvasHeight = 9
         x: 1.67,
         y: 244,
         width: 22.08,
-        height: 72.08,
+        height: 0,
         zIndex: 1,
-        units: { x: "percent", y: "px", width: "percent", height: "percent" },
+        units: { x: "percent", y: "px", width: "percent", height: "fill" },
       },
       {
         id: "actions",
@@ -109,9 +109,9 @@ export function createDefaultWorkflowLayout(canvasWidth = 1440, canvasHeight = 9
         x: 25.42,
         y: 498,
         width: 72.92,
-        height: 45.63,
+        height: 0,
         zIndex: 1,
-        units: { x: "percent", y: "px", width: "percent", height: "percent" },
+        units: { x: "percent", y: "px", width: "percent", height: "fill" },
       },
     ],
   };
@@ -196,11 +196,19 @@ export function normalizeWorkflowLayout(
   const blocks = Array.isArray(input.blocks)
     ? input.blocks.map((block, index) => {
         const units = normalizeUnits(block.units);
+        const resolvedX = readLayoutMetric(block.x, units.x, block.relative?.xPct, canvas.width, 24 + index * 12);
+        const resolvedY = readLayoutMetric(block.y, units.y, block.relative?.yPct, canvas.height, 24 + index * 12);
         const resolvedRect: WorkflowLayoutResolvedRect = {
-          x: readLayoutMetric(block.x, units.x, block.relative?.xPct, canvas.width, 24 + index * 12),
-          y: readLayoutMetric(block.y, units.y, block.relative?.yPct, canvas.height, 24 + index * 12),
-          width: readLayoutMetric(block.width, units.width, block.relative?.widthPct, canvas.width, 320),
-          height: readLayoutMetric(block.height, units.height, block.relative?.heightPct, canvas.height, 180),
+          x: resolvedX,
+          y: resolvedY,
+          width:
+            units.width === "fill"
+              ? Math.max(MIN_BLOCK_WIDTH, canvas.width - resolvedX)
+              : readLayoutMetric(block.width, units.width, block.relative?.widthPct, canvas.width, 320),
+          height:
+            units.height === "fill"
+              ? Math.max(MIN_BLOCK_HEIGHT, canvas.height - resolvedY)
+              : readLayoutMetric(block.height, units.height, block.relative?.heightPct, canvas.height, 180),
         };
 
         return clampBlockToCanvas(
@@ -249,11 +257,13 @@ export function getWorkflowLayoutBlock(
 }
 
 export function getWorkflowBlockStyle(block: WorkflowLayoutBlock): CSSProperties {
+  const left = formatMetric(block.x, block.units.x);
+  const top = formatMetric(block.y, block.units.y);
   return {
-    left: formatMetric(block.x, block.units.x),
-    top: formatMetric(block.y, block.units.y),
-    width: formatMetric(block.width, block.units.width),
-    height: formatMetric(block.height, block.units.height),
+    left,
+    top,
+    width: block.units.width === "fill" ? `calc(100% - ${left})` : formatMetric(block.width, block.units.width),
+    height: block.units.height === "fill" ? `calc(100% - ${top})` : formatMetric(block.height, block.units.height),
     zIndex: block.zIndex,
   };
 }
@@ -350,8 +360,8 @@ function normalizeUnits(units?: Partial<WorkflowLayoutBlockUnits>): WorkflowLayo
   return {
     x: units?.x === "percent" ? "percent" : "px",
     y: units?.y === "percent" ? "percent" : "px",
-    width: units?.width === "percent" ? "percent" : "px",
-    height: units?.height === "percent" ? "percent" : "px",
+    width: units?.width === "fill" ? "fill" : units?.width === "percent" ? "percent" : "px",
+    height: units?.height === "fill" ? "fill" : units?.height === "percent" ? "percent" : "px",
   };
 }
 
@@ -387,10 +397,16 @@ function convertPixelsToMetric(value: number, unit: WorkflowLayoutUnit, axisSize
   if (unit === "percent") {
     return roundPercent((value / axisSize) * 100);
   }
+  if (unit === "fill") {
+    return 0;
+  }
   return Math.round(value);
 }
 
 function formatMetric(value: number, unit: WorkflowLayoutUnit) {
+  if (unit === "fill") {
+    return "0px";
+  }
   return unit === "percent" ? `${value}%` : `${Math.round(value)}px`;
 }
 

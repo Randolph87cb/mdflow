@@ -64,6 +64,7 @@ const COMPONENT_OPTIONS: Array<{ type: WorkflowLayoutComponentType; label: strin
 const UNIT_OPTIONS: Array<{ value: WorkflowLayoutUnit; label: string }> = [
   { value: "px", label: "px" },
   { value: "percent", label: "%" },
+  { value: "fill", label: "铺满剩余" },
 ];
 
 const METRIC_FIELDS: Array<{ field: WorkflowLayoutField; label: string }> = [
@@ -341,13 +342,20 @@ export function LayoutLabPage() {
                           event.preventDefault();
                           event.stopPropagation();
                           setSelectedBlockId(block.id);
+                          const initialBlock =
+                            (handle.includes("e") || handle.includes("w")) && block.units.width === "fill"
+                              ? patchWorkflowBlockUnits(block, layout.canvas, { width: "px" })
+                              : (handle.includes("n") || handle.includes("s")) && block.units.height === "fill"
+                                ? patchWorkflowBlockUnits(block, layout.canvas, { height: "px" })
+                                : block;
+                          const initialRect = resolveWorkflowBlockRect(initialBlock, layout.canvas);
                           setDragState({
                             mode: "resize",
                             blockId: block.id,
                             pointerX: event.clientX,
                             pointerY: event.clientY,
-                            initialBlock: block,
-                            initialRect: resolved,
+                            initialBlock,
+                            initialRect,
                             handle,
                           });
                         }}
@@ -419,6 +427,7 @@ export function LayoutLabPage() {
                 {METRIC_FIELDS.map(({ field, label }) => (
                   <MetricField
                     key={field}
+                    field={field}
                     label={label}
                     value={selectedBlock[field]}
                     unit={selectedBlock.units[field]}
@@ -473,30 +482,42 @@ function MetricPreview({ label, value }: { label: string; value: string }) {
 }
 
 function MetricField({
+  field,
   label,
   value,
   unit,
   onChange,
   onUnitChange,
 }: {
+  field: WorkflowLayoutField;
   label: string;
   value: number;
   unit: WorkflowLayoutUnit;
   onChange: (value: number) => void;
   onUnitChange: (unit: WorkflowLayoutUnit) => void;
 }) {
+  const allowFill = field === "width" || field === "height";
+  const unitOptions = allowFill ? UNIT_OPTIONS : UNIT_OPTIONS.filter((option) => option.value !== "fill");
+
   return (
     <div className="layout-lab-metric-field">
-      <NumberField
-        label={label}
-        value={value}
-        step={unit === "percent" ? "0.1" : "1"}
-        onChange={onChange}
-      />
+      {unit === "fill" ? (
+        <div className="layout-lab-fill-preview">
+          <span>{label}</span>
+          <strong>铺满剩余空间</strong>
+        </div>
+      ) : (
+        <NumberField
+          label={label}
+          value={value}
+          step={unit === "percent" ? "0.1" : "1"}
+          onChange={onChange}
+        />
+      )}
       <label className="field">
         <span>单位</span>
         <select value={unit} onChange={(event) => onUnitChange(event.target.value as WorkflowLayoutUnit)}>
-          {UNIT_OPTIONS.map((option) => (
+          {unitOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
