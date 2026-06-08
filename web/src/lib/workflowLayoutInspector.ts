@@ -13,6 +13,16 @@ export type WorkflowLayoutId = (typeof WORKFLOW_LAYOUT_IDS)[number];
 
 export type WorkflowLayoutOverride = Partial<Record<WorkflowLayoutField, string>>;
 export type WorkflowLayoutOverrides = Partial<Record<WorkflowLayoutId, WorkflowLayoutOverride>>;
+export type WorkflowDomStyleOverride = Partial<Record<WorkflowLayoutField, string>>;
+export type WorkflowDomStyleOverrides = Record<string, WorkflowDomStyleOverride>;
+
+export type WorkflowDomInspectorNode = {
+  id: string;
+  label: string;
+  descriptor: string;
+  depth: number;
+  children: WorkflowDomInspectorNode[];
+};
 
 export type WorkflowLayoutField =
   | "display"
@@ -57,6 +67,7 @@ export const WORKFLOW_LAYOUT_LABELS: Record<WorkflowLayoutId, string> = {
 };
 
 const STORAGE_KEY = "mdflow.workflow-layout-inspector";
+const DOM_STORAGE_KEY = "mdflow.workflow-dom-inspector";
 
 export function readWorkflowLayoutOverrides(): WorkflowLayoutOverrides {
   if (typeof window === "undefined") return {};
@@ -78,6 +89,28 @@ export function saveWorkflowLayoutOverrides(overrides: WorkflowLayoutOverrides) 
 export function clearWorkflowLayoutOverrides() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(STORAGE_KEY);
+}
+
+export function readWorkflowDomStyleOverrides(): WorkflowDomStyleOverrides {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(DOM_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as WorkflowDomStyleOverrides;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveWorkflowDomStyleOverrides(overrides: WorkflowDomStyleOverrides) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(DOM_STORAGE_KEY, JSON.stringify(overrides));
+}
+
+export function clearWorkflowDomStyleOverrides() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(DOM_STORAGE_KEY);
 }
 
 export function toWorkflowLayoutStyle(override?: WorkflowLayoutOverride): CSSProperties | undefined {
