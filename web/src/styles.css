@@ -1350,6 +1350,294 @@ a:focus-visible,
   width: 100%;
 }
 
+.workflow-prototype-layout {
+  padding: 18px;
+  overflow: auto;
+}
+
+.workflow-prototype-canvas {
+  position: relative;
+  min-width: 960px;
+  width: 100%;
+}
+
+.workflow-prototype-slot {
+  position: absolute;
+  min-width: 0;
+  min-height: 0;
+}
+
+.workflow-prototype-slot > * {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.workflow-prototype-slot .workflow-overview-sidebar,
+.workflow-prototype-slot .workflow-overview-actions,
+.workflow-prototype-slot .workflow-overview-graph {
+  min-height: 100%;
+}
+
+.workflow-prototype-slot .workflow-overview-graph-frame,
+.workflow-prototype-slot .workflow-overview-action-grid {
+  height: calc(100% - 84px);
+}
+
+.workflow-prototype-slot .workflow-overview-graph-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.workflow-prototype-slot .workflow-overview-graph-surface,
+.workflow-prototype-slot .workflow-overview-graph-surface .graph-panel {
+  min-height: 100%;
+}
+
+.layout-lab-page {
+  gap: 18px;
+}
+
+.layout-lab-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto;
+  gap: 18px;
+  align-items: end;
+  padding: 26px 28px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.8), transparent 32%),
+    linear-gradient(135deg, rgba(228, 243, 255, 0.95) 0%, rgba(255, 232, 236, 0.95) 100%);
+  border-color: rgba(188, 208, 255, 0.46);
+}
+
+.layout-lab-hero h1 {
+  margin: 0 0 12px;
+  color: #273244;
+  font-family: "YouYuan", "Baloo 2", "Microsoft YaHei", sans-serif;
+  font-size: clamp(30px, 3.5vw, 46px);
+  line-height: 1.06;
+}
+
+.layout-lab-hero p {
+  margin: 0;
+  max-width: 760px;
+  color: rgba(39, 50, 68, 0.78);
+  line-height: 1.75;
+}
+
+.layout-lab-hero-meta,
+.layout-lab-toolbar,
+.layout-lab-toolbar-group,
+.layout-lab-block-header,
+.layout-lab-block-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.layout-lab-hero-meta {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.layout-lab-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.layout-lab-main,
+.layout-lab-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.layout-lab-main {
+  overflow: hidden;
+}
+
+.layout-lab-toolbar {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.layout-lab-status {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(243, 248, 255, 0.92), rgba(255, 244, 246, 0.92));
+  color: rgba(48, 43, 72, 0.82);
+  border: 1px solid rgba(202, 214, 255, 0.42);
+}
+
+.layout-lab-canvas-wrap {
+  overflow: auto;
+  padding: 8px 0 6px;
+}
+
+.layout-lab-canvas {
+  position: relative;
+  border-radius: 28px;
+  border: 2px dashed rgba(164, 178, 215, 0.72);
+  background:
+    linear-gradient(rgba(213, 226, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(213, 226, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(246, 249, 255, 0.94));
+  background-size: 32px 32px, 32px 32px, auto;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+.layout-lab-block {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 18px;
+  border-radius: 24px;
+  border: 2px solid rgba(119, 142, 196, 0.42);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(240, 246, 255, 0.94));
+  box-shadow: 0 16px 28px rgba(151, 165, 196, 0.18);
+  cursor: move;
+  user-select: none;
+}
+
+.layout-lab-block.selected {
+  border-color: rgba(120, 148, 255, 0.82);
+  box-shadow: 0 18px 34px rgba(120, 148, 255, 0.24);
+}
+
+.layout-lab-block-header {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.layout-lab-block-header strong {
+  color: #283147;
+  font-size: 20px;
+  line-height: 1.18;
+}
+
+.layout-lab-block-header span,
+.layout-lab-block-meta {
+  color: rgba(65, 78, 109, 0.78);
+  font-size: 12px;
+}
+
+.layout-lab-resize-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #7894ff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.92);
+  padding: 0;
+}
+
+.layout-lab-resize-handle.handle-n,
+.layout-lab-resize-handle.handle-s {
+  left: calc(50% - 7px);
+}
+
+.layout-lab-resize-handle.handle-e,
+.layout-lab-resize-handle.handle-w {
+  top: calc(50% - 7px);
+}
+
+.layout-lab-resize-handle.handle-n,
+.layout-lab-resize-handle.handle-ne,
+.layout-lab-resize-handle.handle-nw {
+  top: -7px;
+}
+
+.layout-lab-resize-handle.handle-s,
+.layout-lab-resize-handle.handle-se,
+.layout-lab-resize-handle.handle-sw {
+  bottom: -7px;
+}
+
+.layout-lab-resize-handle.handle-e,
+.layout-lab-resize-handle.handle-ne,
+.layout-lab-resize-handle.handle-se {
+  right: -7px;
+}
+
+.layout-lab-resize-handle.handle-w,
+.layout-lab-resize-handle.handle-nw,
+.layout-lab-resize-handle.handle-sw {
+  left: -7px;
+}
+
+.layout-lab-resize-handle.handle-n,
+.layout-lab-resize-handle.handle-s {
+  cursor: ns-resize;
+}
+
+.layout-lab-resize-handle.handle-e,
+.layout-lab-resize-handle.handle-w {
+  cursor: ew-resize;
+}
+
+.layout-lab-resize-handle.handle-ne,
+.layout-lab-resize-handle.handle-sw {
+  cursor: nesw-resize;
+}
+
+.layout-lab-resize-handle.handle-nw,
+.layout-lab-resize-handle.handle-se {
+  cursor: nwse-resize;
+}
+
+.layout-lab-panel-header {
+  padding-bottom: 0;
+}
+
+.layout-lab-form,
+.layout-lab-json {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field span {
+  color: rgba(63, 43, 86, 0.78);
+  font-size: 13px;
+}
+
+.field input,
+.field select,
+.layout-lab-json-viewer {
+  width: 100%;
+  border: 2px solid rgba(203, 184, 255, 0.24);
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #352b4d;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.layout-lab-grid-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.layout-lab-json-viewer {
+  min-height: 280px;
+  resize: vertical;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 @media (max-width: 1440px) {
   .app-header-grid,
   .workspace-header,
@@ -1366,6 +1654,11 @@ a:focus-visible,
 
   .workflow-overview-action-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout-lab-shell,
+  .layout-lab-hero {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1399,6 +1692,10 @@ a:focus-visible,
   .workflow-overview-list-item-meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .layout-lab-grid-fields {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1443,6 +1740,20 @@ a:focus-visible,
   .workflow-overview-graph-surface,
   .workflow-overview-graph-surface .graph-panel {
     min-height: 460px;
+  }
+
+  .layout-lab-main,
+  .layout-lab-sidebar,
+  .layout-lab-hero {
+    border-radius: 22px;
+  }
+
+  .layout-lab-toolbar {
+    align-items: flex-start;
+  }
+
+  .layout-lab-canvas {
+    min-width: 960px;
   }
 }
 

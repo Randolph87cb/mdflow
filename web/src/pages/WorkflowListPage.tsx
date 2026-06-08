@@ -6,6 +6,12 @@ import { WorkflowGraph } from "../components/WorkflowGraph";
 import { WorkflowTable } from "../components/WorkflowTable";
 import { studioApi } from "../lib/api";
 import type { WorkflowDetail, WorkflowSummary } from "../lib/types";
+import {
+  getWorkflowBlockStyle,
+  getWorkflowLayoutBlock,
+  readStoredWorkflowLayout,
+  type WorkflowLayoutDefinition,
+} from "../lib/workflowLayout";
 
 type GraphData = {
   nodes: any[];
@@ -21,6 +27,13 @@ export function WorkflowListPage() {
   const [graph, setGraph] = useState<GraphData>(EMPTY_GRAPH);
   const [runWorkflowId, setRunWorkflowId] = useState<string | null>(null);
   const [copyWorkflowId, setCopyWorkflowId] = useState<string | null>(null);
+  const [prototypeLayout] = useState<WorkflowLayoutDefinition | null>(() => {
+    if (typeof window === "undefined") return null;
+    return readStoredWorkflowLayout();
+  });
+  const [usePrototypeLayout, setUsePrototypeLayout] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth >= 1180 : false,
+  );
   const navigate = useNavigate();
 
   const workflowCount = items.length;
@@ -82,183 +95,251 @@ export function WorkflowListPage() {
     };
   }, [selectedWorkflowId]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    function updateLayoutMode() {
+      setUsePrototypeLayout(window.innerWidth >= 1180);
+    }
+
+    window.addEventListener("resize", updateLayoutMode);
+    return () => {
+      window.removeEventListener("resize", updateLayoutMode);
+    };
+  }, []);
+
+  const headerSection = (
+    <section className="workflow-overview-hero panel">
+      {selectedWorkflowId ? (
+        <>
+          <div className="workflow-current-main">
+            <div className="eyebrow">当前工作流</div>
+            <div className="workflow-current-heading">
+              <h1>{selectedWorkflow?.workflow_id || selectedWorkflowId}</h1>
+              <span className={`status-pill ${headlineStatus.tone}`}>{headlineStatus.label}</span>
+            </div>
+            <div className="workflow-current-name">
+              {selectedWorkflow?.name || selectedSummary?.name || "未命名工作流"}
+            </div>
+            <div className="workflow-current-path-block">
+              <span className="meta-label">工作流路径</span>
+              <div className="workflow-current-path">
+                {selectedWorkflow?.workflow_path || "正在加载工作流路径..."}
+              </div>
+            </div>
+          </div>
+
+          <div className="workflow-current-meta">
+            <div className="workflow-current-card">
+              <span className="meta-label">入口节点</span>
+              <strong>{selectedWorkflow?.entry || "-"}</strong>
+            </div>
+            <div className="workflow-current-card">
+              <span className="meta-label">节点数</span>
+              <strong>{selectedWorkflow?.node_count ?? selectedSummary?.node_count ?? 0}</strong>
+            </div>
+            <div className="workflow-current-card">
+              <span className="meta-label">最终产物</span>
+              <strong>{selectedWorkflow?.final_outputs.length ?? 0} 个</strong>
+            </div>
+            <div className="workflow-current-card">
+              <span className="meta-label">最新状态</span>
+              <strong>{headlineStatus.label}</strong>
+            </div>
+            <div className="workflow-current-card">
+              <span className="meta-label">最新运行时间</span>
+              <strong>{selectedLatestRun?.started_at || "暂无运行"}</strong>
+            </div>
+            <div className="workflow-current-card">
+              <span className="meta-label">最新运行 ID</span>
+              <strong>{selectedLatestRun?.run_id || "暂无运行"}</strong>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="workflow-current-empty">
+          <div className="eyebrow">当前工作流</div>
+          <strong>请选择左侧工作流</strong>
+          <div className="subtle">选中后会在这里显示当前工作流摘要、最新状态和路径信息。</div>
+        </div>
+      )}
+    </section>
+  );
+
+  const sidebarSection = (
+    <aside className="workflow-overview-sidebar panel">
+      <div className="panel-header workflow-overview-panel-header">
+        <div>
+          <strong>现有工作流</strong>
+          <div className="subtle">选择一个工作流，右侧会更新总览信息、按钮目标和结构图。</div>
+        </div>
+        <span className="metric-chip">共 {workflowCount} 个</span>
+      </div>
+      <WorkflowTable
+        items={items}
+        selectedWorkflowId={selectedWorkflowId}
+        onSelect={setSelectedWorkflowId}
+        emptyCopy="当前本地工作区中没有找到工作流。"
+      />
+    </aside>
+  );
+
+  const actionsSection = (
+    <section className="workflow-overview-actions panel">
+      <div className="panel-header workflow-overview-panel-header">
+        <div>
+          <strong>关键操作</strong>
+          <div className="subtle">四个动作入口固定在这里，不再把历史运行、定义或产物塞进首页首屏。</div>
+        </div>
+      </div>
+      <div className="workflow-overview-action-grid">
+        <button
+          className="workflow-overview-action-card"
+          type="button"
+          onClick={() => {
+            if (!selectedWorkflowId || !selectedLatestRun) return;
+            navigate(`/workflows/${selectedWorkflowId}/runs/${selectedLatestRun.run_id}`);
+          }}
+          disabled={!selectedWorkflowId || !selectedLatestRun}
+        >
+          <span className="meta-label">最新运行</span>
+          <strong>打开最新运行</strong>
+          <span className="subtle">{selectedLatestRun ? selectedLatestRun.run_id : "当前工作流还没有运行记录"}</span>
+        </button>
+        <button
+          className="workflow-overview-action-card"
+          type="button"
+          onClick={() => {
+            if (!selectedWorkflowId) return;
+            navigate(`/workflows/${selectedWorkflowId}`);
+          }}
+          disabled={!selectedWorkflowId}
+        >
+          <span className="meta-label">详情页</span>
+          <strong>历史运行列表</strong>
+          <span className="subtle">跳转到工作流详情页面查看历史运行与节点定义。</span>
+        </button>
+        <button
+          className="workflow-overview-action-card workflow-overview-action-card-primary"
+          type="button"
+          onClick={() => {
+            if (!selectedWorkflowId) return;
+            setRunWorkflowId(selectedWorkflowId);
+          }}
+          disabled={!selectedWorkflowId}
+        >
+          <span className="meta-label">执行</span>
+          <strong>运行</strong>
+          <span className="subtle">打开运行面板，创建新的执行记录。</span>
+        </button>
+        <button
+          className="workflow-overview-action-card"
+          type="button"
+          onClick={() => {
+            if (!selectedWorkflowId) return;
+            setCopyWorkflowId(selectedWorkflowId);
+          }}
+          disabled={!selectedWorkflowId}
+        >
+          <span className="meta-label">分支</span>
+          <strong>复制</strong>
+          <span className="subtle">复制当前工作流，生成新的本地变体继续编辑。</span>
+        </button>
+      </div>
+    </section>
+  );
+
+  const graphSection = (
+    <section className="workflow-overview-graph panel">
+      <div className="panel-header workflow-overview-panel-header">
+        <div>
+          <strong>节点图预览</strong>
+          <div className="subtle">这里只负责快速理解结构，不显示源码、历史运行详情或产物预览。</div>
+        </div>
+        <div className="workflow-overview-graph-meta">
+          <span className="metric-chip">入口 {selectedWorkflow?.entry || "-"}</span>
+          <span className="metric-chip">节点 {selectedWorkflow?.node_count ?? selectedSummary?.node_count ?? 0}</span>
+          <span className="metric-chip">产物 {selectedWorkflow?.final_outputs.length ?? 0}</span>
+        </div>
+      </div>
+      {selectedWorkflow ? (
+        <div className="workflow-overview-graph-frame">
+          <div className="workflow-overview-graph-info">
+            <div>
+              <span className="meta-label">工作流路径</span>
+              <div className="workflow-overview-path">{selectedWorkflow.workflow_path}</div>
+            </div>
+            <div className="workflow-overview-graph-badges">
+              <span className={`status-pill ${headlineStatus.tone}`}>{headlineStatus.label}</span>
+              <span className="metric-chip">最新运行 {selectedLatestRun?.started_at || "-"}</span>
+            </div>
+          </div>
+          <div className="workflow-overview-graph-surface">
+            <WorkflowGraph nodes={graph.nodes} edges={graph.edges} />
+          </div>
+        </div>
+      ) : (
+        <div className="empty-state workflow-overview-empty">
+          当前没有可展示的工作流。请先在左侧选择一个工作流，或检查本地工作区是否已加载内容。
+        </div>
+      )}
+    </section>
+  );
+
+  const canUsePrototypeLayout =
+    usePrototypeLayout &&
+    prototypeLayout &&
+    getWorkflowLayoutBlock(prototypeLayout, "workflow-header") &&
+    getWorkflowLayoutBlock(prototypeLayout, "workflow-list") &&
+    getWorkflowLayoutBlock(prototypeLayout, "workflow-actions") &&
+    getWorkflowLayoutBlock(prototypeLayout, "workflow-graph");
+
   return (
     <div className="page workflow-list-page workflow-overview-page">
-      <section className="workflow-overview-hero panel">
-        {selectedWorkflowId ? (
-          <>
-            <div className="workflow-current-main">
-              <div className="eyebrow">当前工作流</div>
-              <div className="workflow-current-heading">
-                <h1>{selectedWorkflow?.workflow_id || selectedWorkflowId}</h1>
-                <span className={`status-pill ${headlineStatus.tone}`}>{headlineStatus.label}</span>
-              </div>
-              <div className="workflow-current-name">
-                {selectedWorkflow?.name || selectedSummary?.name || "未命名工作流"}
-              </div>
-              <div className="workflow-current-path-block">
-                <span className="meta-label">工作流路径</span>
-                <div className="workflow-current-path">
-                  {selectedWorkflow?.workflow_path || "正在加载工作流路径..."}
-                </div>
-              </div>
+      {canUsePrototypeLayout ? (
+        <section className="workflow-prototype-layout panel">
+          <div
+            className="workflow-prototype-canvas"
+            style={{ aspectRatio: `${prototypeLayout.canvas.width} / ${prototypeLayout.canvas.height}` }}
+          >
+            <div
+              className="workflow-prototype-slot"
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-header")!, prototypeLayout.canvas)}
+            >
+              {headerSection}
             </div>
-
-            <div className="workflow-current-meta">
-              <div className="workflow-current-card">
-                <span className="meta-label">入口节点</span>
-                <strong>{selectedWorkflow?.entry || "-"}</strong>
-              </div>
-              <div className="workflow-current-card">
-                <span className="meta-label">节点数</span>
-                <strong>{selectedWorkflow?.node_count ?? selectedSummary?.node_count ?? 0}</strong>
-              </div>
-              <div className="workflow-current-card">
-                <span className="meta-label">最终产物</span>
-                <strong>{selectedWorkflow?.final_outputs.length ?? 0} 个</strong>
-              </div>
-              <div className="workflow-current-card">
-                <span className="meta-label">最新状态</span>
-                <strong>{headlineStatus.label}</strong>
-              </div>
-              <div className="workflow-current-card">
-                <span className="meta-label">最新运行时间</span>
-                <strong>{selectedLatestRun?.started_at || "暂无运行"}</strong>
-              </div>
-              <div className="workflow-current-card">
-                <span className="meta-label">最新运行 ID</span>
-                <strong>{selectedLatestRun?.run_id || "暂无运行"}</strong>
-              </div>
+            <div
+              className="workflow-prototype-slot"
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-list")!, prototypeLayout.canvas)}
+            >
+              {sidebarSection}
             </div>
-          </>
-        ) : (
-          <div className="workflow-current-empty">
-            <div className="eyebrow">当前工作流</div>
-            <strong>请选择左侧工作流</strong>
-            <div className="subtle">选中后会在这里显示当前工作流摘要、最新状态和路径信息。</div>
+            <div
+              className="workflow-prototype-slot"
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-actions")!, prototypeLayout.canvas)}
+            >
+              {actionsSection}
+            </div>
+            <div
+              className="workflow-prototype-slot"
+              style={getWorkflowBlockStyle(getWorkflowLayoutBlock(prototypeLayout, "workflow-graph")!, prototypeLayout.canvas)}
+            >
+              {graphSection}
+            </div>
           </div>
-        )}
-      </section>
-
-      <section className="workflow-overview-layout">
-        <aside className="workflow-overview-sidebar panel">
-          <div className="panel-header workflow-overview-panel-header">
-            <div>
-              <strong>现有工作流</strong>
-              <div className="subtle">选择一个工作流，右侧会更新总览信息、按钮目标和结构图。</div>
-            </div>
-            <span className="metric-chip">共 {workflowCount} 个</span>
-          </div>
-          <WorkflowTable
-            items={items}
-            selectedWorkflowId={selectedWorkflowId}
-            onSelect={setSelectedWorkflowId}
-            emptyCopy="当前本地工作区中没有找到工作流。"
-          />
-        </aside>
-
-        <div className="workflow-overview-main">
-          <section className="workflow-overview-actions panel">
-            <div className="panel-header workflow-overview-panel-header">
-              <div>
-                <strong>关键操作</strong>
-                <div className="subtle">四个动作入口固定在这里，不再把历史运行、定义或产物塞进首页首屏。</div>
-              </div>
-            </div>
-            <div className="workflow-overview-action-grid">
-              <button
-                className="workflow-overview-action-card"
-                type="button"
-                onClick={() => {
-                  if (!selectedWorkflowId || !selectedLatestRun) return;
-                  navigate(`/workflows/${selectedWorkflowId}/runs/${selectedLatestRun.run_id}`);
-                }}
-                disabled={!selectedWorkflowId || !selectedLatestRun}
-              >
-                <span className="meta-label">最新运行</span>
-                <strong>打开最新运行</strong>
-                <span className="subtle">
-                  {selectedLatestRun ? selectedLatestRun.run_id : "当前工作流还没有运行记录"}
-                </span>
-              </button>
-              <button
-                className="workflow-overview-action-card"
-                type="button"
-                onClick={() => {
-                  if (!selectedWorkflowId) return;
-                  navigate(`/workflows/${selectedWorkflowId}`);
-                }}
-                disabled={!selectedWorkflowId}
-              >
-                <span className="meta-label">详情页</span>
-                <strong>历史运行列表</strong>
-                <span className="subtle">跳转到工作流详情页面查看历史运行与节点定义。</span>
-              </button>
-              <button
-                className="workflow-overview-action-card workflow-overview-action-card-primary"
-                type="button"
-                onClick={() => {
-                  if (!selectedWorkflowId) return;
-                  setRunWorkflowId(selectedWorkflowId);
-                }}
-                disabled={!selectedWorkflowId}
-              >
-                <span className="meta-label">执行</span>
-                <strong>运行</strong>
-                <span className="subtle">打开运行面板，创建新的执行记录。</span>
-              </button>
-              <button
-                className="workflow-overview-action-card"
-                type="button"
-                onClick={() => {
-                  if (!selectedWorkflowId) return;
-                  setCopyWorkflowId(selectedWorkflowId);
-                }}
-                disabled={!selectedWorkflowId}
-              >
-                <span className="meta-label">分支</span>
-                <strong>复制</strong>
-                <span className="subtle">复制当前工作流，生成新的本地变体继续编辑。</span>
-              </button>
+        </section>
+      ) : (
+        <>
+          {headerSection}
+          <section className="workflow-overview-layout">
+            {sidebarSection}
+            <div className="workflow-overview-main">
+              {actionsSection}
+              {graphSection}
             </div>
           </section>
-
-          <section className="workflow-overview-graph panel">
-            <div className="panel-header workflow-overview-panel-header">
-              <div>
-                <strong>节点图预览</strong>
-                <div className="subtle">这里只负责快速理解结构，不显示源码、历史运行详情或产物预览。</div>
-              </div>
-              <div className="workflow-overview-graph-meta">
-                <span className="metric-chip">入口 {selectedWorkflow?.entry || "-"}</span>
-                <span className="metric-chip">节点 {selectedWorkflow?.node_count ?? selectedSummary?.node_count ?? 0}</span>
-                <span className="metric-chip">产物 {selectedWorkflow?.final_outputs.length ?? 0}</span>
-              </div>
-            </div>
-            {selectedWorkflow ? (
-              <div className="workflow-overview-graph-frame">
-                <div className="workflow-overview-graph-info">
-                  <div>
-                    <span className="meta-label">工作流路径</span>
-                    <div className="workflow-overview-path">{selectedWorkflow.workflow_path}</div>
-                  </div>
-                  <div className="workflow-overview-graph-badges">
-                    <span className={`status-pill ${headlineStatus.tone}`}>{headlineStatus.label}</span>
-                    <span className="metric-chip">最新运行 {selectedLatestRun?.started_at || "-"}</span>
-                  </div>
-                </div>
-                <div className="workflow-overview-graph-surface">
-                  <WorkflowGraph nodes={graph.nodes} edges={graph.edges} />
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state workflow-overview-empty">
-                当前没有可展示的工作流。请先在左侧选择一个工作流，或检查本地工作区是否已加载内容。
-              </div>
-            )}
-          </section>
-        </div>
-      </section>
+        </>
+      )}
 
       <RunDialog
         open={Boolean(runWorkflowId)}
