@@ -62,6 +62,7 @@ export function TraceViewer({ trace, title = "Trace", subtitle }: Props) {
           <section key={label} className="trace-block">
             <div className="trace-block-header">
               <strong>{label}</strong>
+              <span className="meta-label">trace section</span>
             </div>
             <pre className="code-block">{value}</pre>
           </section>

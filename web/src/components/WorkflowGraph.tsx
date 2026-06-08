@@ -9,7 +9,20 @@ type Props = {
   onSelectNode?: (nodeId: string) => void;
 };
 
-mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "neutral" });
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: "loose",
+  theme: "base",
+  themeVariables: {
+    background: "#0f172a",
+    primaryColor: "#152034",
+    primaryBorderColor: "#3f5872",
+    primaryTextColor: "#e2e8f0",
+    lineColor: "#4ade80",
+    tertiaryColor: "#0f172a",
+    fontFamily: '"JetBrains Mono", monospace',
+  },
+});
 
 export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -54,6 +67,7 @@ export function WorkflowGraph({ nodes, edges, selectedNodeId, onSelectNode }: Pr
             return;
           }
           (element as HTMLElement).style.cursor = "pointer";
+          element.classList.add(`graph-node-status-${(node.status || node.type || "idle").toLowerCase()}`);
           element.addEventListener("click", () => onSelectNode?.(node.id));
           if (selectedNodeId === node.id) {
             (element as HTMLElement).classList.add("graph-node-selected");

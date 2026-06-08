@@ -11,6 +11,14 @@ type Props = {
 
 export function OutputBrowser({ items, selected, active, onSelect, onToggle, onDownloadZip }: Props) {
   const selectedCount = selected.length;
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>, name: string) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect(name);
+    }
+  }
+
   return (
     <section className="panel">
       <div className="panel-header">
@@ -26,7 +34,15 @@ export function OutputBrowser({ items, selected, active, onSelect, onToggle, onD
       </div>
       <div className="output-list">
         {items.map((item) => (
-          <div key={item.name} className={`output-item ${active === item.name ? "active" : ""}`} onClick={() => onSelect(item.name)}>
+          <div
+            key={item.name}
+            className={`output-item ${active === item.name ? "active" : ""}`}
+            onClick={() => onSelect(item.name)}
+            onKeyDown={(event) => handleKeyDown(event, item.name)}
+            role="button"
+            tabIndex={0}
+            aria-pressed={active === item.name}
+          >
             <input
               type="checkbox"
               checked={selected.includes(item.name)}
@@ -36,7 +52,12 @@ export function OutputBrowser({ items, selected, active, onSelect, onToggle, onD
               }}
             />
             <div className="output-main">
-              <div>{item.name}</div>
+              <div className="output-name-row">
+                <div>{item.name}</div>
+                <span className="metric-chip metric-chip-compact">
+                  {item.previewable ? "preview" : "binary"}
+                </span>
+              </div>
               <div className="subtle">
                 {item.path} · {item.size} bytes {item.previewable ? "· preview" : "· binary"}
               </div>

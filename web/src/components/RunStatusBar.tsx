@@ -29,9 +29,10 @@ export function RunStatusBar({
   return (
     <section className="run-status-bar panel">
       <div className="run-status-left">
-        <div className="run-kicker">Run</div>
-        <div className="table-primary">
-          {runId} <span className="run-workflow-name">{workflowId}</span>
+        <div className="run-kicker">Run cockpit</div>
+        <div className="run-status-headline">
+          <strong>{runId}</strong>
+          <span className="run-workflow-name">{workflowId}</span>
         </div>
         <div className="run-status-meta">
           <span className="subtle">started {startedAt || "-"}</span>
@@ -42,10 +43,22 @@ export function RunStatusBar({
         </div>
       </div>
       <div className="run-status-metrics">
-        <span className={`status-pill ${toneFromStatus(status)}`}>{status}</span>
-        <span className="metric-chip">current: {currentNode || "null"}</span>
-        <span className="metric-chip">completed: {completedCount ?? 0}</span>
-        <span className="metric-chip">outputs: {outputCount ?? 0}</span>
+        <div className="status-card">
+          <span className="meta-label">Status</span>
+          <span className={`status-pill ${toneFromStatus(status)}`}>{status}</span>
+        </div>
+        <div className="status-card">
+          <span className="meta-label">Current node</span>
+          <strong>{currentNode || "null"}</strong>
+        </div>
+        <div className="status-card">
+          <span className="meta-label">Completed</span>
+          <strong>{completedCount ?? 0}</strong>
+        </div>
+        <div className="status-card">
+          <span className="meta-label">Outputs</span>
+          <strong>{outputCount ?? 0}</strong>
+        </div>
       </div>
     </section>
   );

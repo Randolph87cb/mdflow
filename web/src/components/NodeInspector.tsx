@@ -30,15 +30,19 @@ export function NodeInspector({ data, title, mode = "run" }: Props) {
       <div className="panel-header">
         <div>
           <strong>{title || "Node Inspector"}</strong>
-          {data ? <div className="subtle">{data.node.id} · {data.source.scope || (mode === "run" ? "workflow snapshot" : "live workflow")}</div> : null}
+          {data ? (
+            <div className="subtle">
+              {data.node.id} · {data.source.scope || (mode === "run" ? "workflow snapshot" : "live workflow")}
+            </div>
+          ) : null}
         </div>
         {data ? <span className={`status-pill ${toneFromType(data.node.type)}`}>{data.node.type}</span> : null}
       </div>
-      <div className="tabs">
-        <button className={tab === "source" ? "active" : ""} onClick={() => setTab("source")}>
+      <div className="tabs" role="tablist" aria-label="Node inspector tabs">
+        <button type="button" className={tab === "source" ? "active" : ""} onClick={() => setTab("source")}>
           Source
         </button>
-        <button className={tab === "meta" ? "active" : ""} onClick={() => setTab("meta")}>
+        <button type="button" className={tab === "meta" ? "active" : ""} onClick={() => setTab("meta")}>
           Meta
         </button>
       </div>

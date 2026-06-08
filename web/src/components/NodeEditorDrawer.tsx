@@ -29,10 +29,13 @@ export function NodeEditorDrawer({ open, workflowId, nodeId, initialContent, onC
     <div className="drawer-backdrop">
       <form className="drawer" onSubmit={handleSubmit}>
         <div className="panel-header">
-          <strong>
-            Edit {workflowId} / {nodeId}
-          </strong>
-          <button type="button" onClick={onClose}>
+          <div className="modal-title-block">
+            <strong>
+              Edit {workflowId} / {nodeId}
+            </strong>
+            <div className="subtle">Update the live Markdown definition for the selected node.</div>
+          </div>
+          <button type="button" className="ghost-button" onClick={onClose}>
             Close
           </button>
         </div>

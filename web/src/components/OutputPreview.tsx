@@ -15,11 +15,16 @@ export function OutputPreview({ data, downloadHref }: Props) {
             {data ? `${data.name} · ${data.path}` : "No file selected"}
           </div>
         </div>
-        {downloadHref ? (
-          <a className="button-link" href={downloadHref} target="_blank" rel="noreferrer">
-            Download
-          </a>
-        ) : null}
+        <div className="actions-cell">
+          {data ? (
+            <span className="metric-chip metric-chip-compact">{data.previewable ? "text preview" : "binary file"}</span>
+          ) : null}
+          {downloadHref ? (
+            <a className="button-link" href={downloadHref} target="_blank" rel="noreferrer">
+              Download
+            </a>
+          ) : null}
+        </div>
       </div>
       {!data ? <div className="empty-state">Select an output file.</div> : null}
       {data && data.previewable ? <pre className="code-block">{data.content}</pre> : null}

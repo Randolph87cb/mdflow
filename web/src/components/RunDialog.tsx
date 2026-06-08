@@ -28,7 +28,10 @@ export function RunDialog({ open, onClose, onSubmit }: Props) {
   return (
     <div className="modal-backdrop">
       <form className="modal" onSubmit={handleSubmit}>
-        <h3>Run workflow</h3>
+        <div className="modal-title-block">
+          <h3>Run workflow</h3>
+          <div className="subtle">Create a new run from file input or inline text without leaving the Studio.</div>
+        </div>
         <label>
           Input Mode
           <select value={inputMode} onChange={(e) => setInputMode(e.target.value as "text" | "file")}>

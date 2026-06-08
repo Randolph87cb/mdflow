@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { CopyWorkflowDialog } from "../components/CopyWorkflowDialog";
 import { NodeEditorDrawer } from "../components/NodeEditorDrawer";
 import { NodeInspector } from "../components/NodeInspector";
@@ -20,6 +20,7 @@ export function WorkflowDetailPage() {
   const [runOpen, setRunOpen] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  const selectedNode = nodes.find((item) => item.id === selectedNodeId) ?? null;
 
   const inspectorData = useMemo<NodeInspectorData | null>(() => {
     const node = nodes.find((item) => item.id === selectedNodeId);
@@ -41,7 +42,7 @@ export function WorkflowDetailPage() {
     setWorkflow(workflowValue);
     setGraph(graphValue);
     setNodes(nodesValue);
-  setRuns(runsValue);
+    setRuns(runsValue);
   }
 
   async function loadNode(nodeId: string) {
@@ -58,9 +59,17 @@ export function WorkflowDetailPage() {
     <div className="page workflow-detail-page">
       <section className="workspace-header panel">
         <div className="workspace-heading">
-          <div className="eyebrow">Workflow</div>
+          <div className="workspace-breadcrumbs">
+            <Link className="subtle-link" to="/">
+              Workflow Index
+            </Link>
+            <span className="subtle">/</span>
+            <span className="subtle">Definition</span>
+          </div>
+          <div className="eyebrow">Live Workflow</div>
           <strong>{workflow?.workflow_id}</strong>
-          <div className="subtle">{workflow?.workflow_path}</div>
+          <div className="subtle">{workflow?.name || "Markdown-defined local workflow"}</div>
+          <div className="workspace-path">{workflow?.workflow_path}</div>
         </div>
         <div className="workspace-summary">
           <div className="summary-chip">
@@ -72,7 +81,11 @@ export function WorkflowDetailPage() {
             <strong>{nodes.length}</strong>
           </div>
           <div className="summary-chip">
-            <span className="meta-label">Outputs</span>
+            <span className="meta-label">Recent runs</span>
+            <strong>{runs.length}</strong>
+          </div>
+          <div className="summary-chip">
+            <span className="meta-label">Final outputs</span>
             <strong>{workflow?.final_outputs.length || 0}</strong>
           </div>
         </div>
@@ -86,41 +99,84 @@ export function WorkflowDetailPage() {
         </div>
       </section>
       <div className="workspace-layout">
-        <aside className="workspace-sidebar panel">
-          <div className="panel-header">
-            <strong>Nodes</strong>
-          </div>
-          <div className="list-panel">
-            {nodes.map((node) => (
-              <button key={node.id} className={`list-row ${selectedNodeId === node.id ? "selected" : ""}`} onClick={() => loadNode(node.id)}>
-                <span>{node.id}</span>
-                <span className={`status-pill ${toneFromNodeType(node.type)}`}>{node.type}</span>
-              </button>
-            ))}
-          </div>
-          <div className="panel-header">
-            <strong>Recent runs</strong>
-          </div>
-          <div className="list-panel">
-            {runs.map((run) => (
-              <button key={run.run_id} className="list-row" onClick={() => navigate(`/workflows/${workflowId}/runs/${run.run_id}`)}>
-                <span>{run.run_id}</span>
-                <span className={`status-pill ${toneFromRunStatus(run.status)}`}>{run.status}</span>
-              </button>
-            ))}
-          </div>
+        <aside className="workspace-sidebar">
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <strong>Nodes</strong>
+                <div className="subtle">Select a node to inspect the live Markdown source.</div>
+              </div>
+              <span className="metric-chip">{nodes.length}</span>
+            </div>
+            <div className="list-panel">
+              {nodes.map((node) => (
+                <button
+                  key={node.id}
+                  className={`list-row list-row-stack ${selectedNodeId === node.id ? "selected" : ""}`}
+                  onClick={() => loadNode(node.id)}
+                >
+                  <div className="list-row-main">
+                    <strong>{node.id}</strong>
+                    <div className="subtle">{node.produces || node.path}</div>
+                  </div>
+                  <span className={`status-pill ${toneFromNodeType(node.type)}`}>{node.type}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="panel">
+            <div className="panel-header">
+              <div>
+                <strong>Recent runs</strong>
+                <div className="subtle">Jump from the definition surface into a specific execution snapshot.</div>
+              </div>
+              <span className="metric-chip">{runs.length}</span>
+            </div>
+            <div className="list-panel">
+              {runs.map((run) => (
+                <button
+                  key={run.run_id}
+                  className="list-row list-row-stack"
+                  onClick={() => navigate(`/workflows/${workflowId}/runs/${run.run_id}`)}
+                >
+                  <div className="list-row-main">
+                    <strong>{run.run_id}</strong>
+                    <div className="subtle">{run.started_at}</div>
+                  </div>
+                  <span className={`status-pill ${toneFromRunStatus(run.status)}`}>{run.status}</span>
+                </button>
+              ))}
+            </div>
+          </section>
         </aside>
         <section className="workspace-main panel">
           <div className="panel-header">
             <div>
-              <strong>Node graph</strong>
-              <div className="subtle">Click a node to inspect source and edit the live workflow definition.</div>
+              <strong>Definition graph</strong>
+              <div className="subtle">Read the structure first, then inspect or edit the selected node.</div>
             </div>
+            {selectedNode ? <span className="metric-chip">selected {selectedNode.id}</span> : null}
           </div>
           <WorkflowGraph nodes={graph.nodes} edges={graph.edges} selectedNodeId={selectedNodeId} onSelectNode={loadNode} />
         </section>
         <aside className="workspace-inspector">
-          <NodeInspector data={inspectorData} title="Node Source" mode="workflow" />
+          <section className="panel inspector-note-panel">
+            <div className="panel-header">
+              <div>
+                <strong>Workflow outputs</strong>
+                <div className="subtle">Final deliverables declared by the live definition.</div>
+              </div>
+            </div>
+            <div className="tag-cloud">
+              {(workflow?.final_outputs || []).map((output) => (
+                <span key={output} className="tag-chip">
+                  {output}
+                </span>
+              ))}
+              {!workflow?.final_outputs.length ? <div className="empty-state">No final outputs declared.</div> : null}
+            </div>
+          </section>
+          <NodeInspector data={inspectorData} title="Live node definition" mode="workflow" />
           {selectedNodeId ? (
             <button className="primary-button full-width-button" onClick={() => setEditorOpen(true)}>
               Edit node

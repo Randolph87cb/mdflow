@@ -28,7 +28,10 @@ export function CopyWorkflowDialog({ open, workflowId, onClose, onSubmit }: Prop
   return (
     <div className="modal-backdrop">
       <form className="modal" onSubmit={handleSubmit}>
-        <h3>Copy workflow</h3>
+        <div className="modal-title-block">
+          <h3>Copy workflow</h3>
+          <div className="subtle">Create a parallel local workflow ID while keeping the current definition intact.</div>
+        </div>
         <label>
           New Workflow ID
           <input value={newWorkflowId} onChange={(e) => setNewWorkflowId(e.target.value)} />

@@ -112,9 +112,10 @@ export function RunDetailPage() {
         <section className="panel run-graph-panel">
           <div className="panel-header">
             <div>
-              <strong>Run Graph</strong>
-              <div className="subtle">Focus a node to inspect trace and rerun from that point.</div>
+              <strong>Run graph</strong>
+              <div className="subtle">Focus a node to inspect its trace, snapshot definition, and rerun boundary.</div>
             </div>
+            {selectedGraphNode ? <span className="metric-chip">{selectedGraphNode.type}</span> : null}
           </div>
           <WorkflowGraph
             nodes={detail?.graph.nodes ?? []}
@@ -126,7 +127,11 @@ export function RunDetailPage() {
             <div className="selected-node-card">
               <div className="selected-node-header">
                 <strong>{selectedGraphNode?.id || "No node selected"}</strong>
-                {selectedGraphNode ? <span className={`status-pill ${toneFromNodeStatus(selectedGraphNode.status)}`}>{selectedGraphNode.status || selectedGraphNode.type}</span> : null}
+                {selectedGraphNode ? (
+                  <span className={`status-pill ${toneFromNodeStatus(selectedGraphNode.status)}`}>
+                    {selectedGraphNode.status || selectedGraphNode.type}
+                  </span>
+                ) : null}
               </div>
               <div className="subtle">
                 {selectedGraphNode
@@ -149,7 +154,7 @@ export function RunDetailPage() {
         </section>
         <div className="run-center">
           <TraceViewer trace={nodeData?.trace ?? null} title="Trace" subtitle={traceSubtitle} />
-          <NodeInspector data={nodeData} title="Node Definition" mode="run" />
+          <NodeInspector data={nodeData} title="Snapshot node definition" mode="run" />
         </div>
         <div className="run-right">
           <OutputBrowser
