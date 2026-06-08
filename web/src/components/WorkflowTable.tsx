@@ -1,70 +1,45 @@
-import { Link } from "react-router-dom";
 import type { WorkflowSummary } from "../lib/types";
 
 type Props = {
   items: WorkflowSummary[];
-  onRun: (workflowId: string) => void;
-  onCopy: (workflowId: string) => void;
+  selectedWorkflowId?: string | null;
+  onSelect: (workflowId: string) => void;
+  emptyCopy?: string;
 };
 
-export function WorkflowTable({ items, onRun, onCopy }: Props) {
+export function WorkflowTable({ items, selectedWorkflowId, onSelect, emptyCopy }: Props) {
   if (items.length === 0) {
-    return <div className="empty-state">当前本地工作区中没有找到工作流。</div>;
+    return <div className="empty-state">{emptyCopy || "当前没有可用数据。"}</div>;
   }
 
   return (
-    <div className="workflow-card-list">
-      {items.map((item) => (
-        <article key={item.workflow_id} className="workflow-card">
-          <div className="workflow-card-main">
-            <div className="workflow-card-title-row">
-              <div>
-                <div className="meta-label">工作流</div>
-                <div className="workflow-card-title">
-                  <div className="table-primary">{item.workflow_id}</div>
-                  <span className={`status-pill ${toneFromStatus(item.latest_run?.status)}`}>
-                    {localizeRunStatus(item.latest_run?.status)}
-                  </span>
-                </div>
+    <div className="workflow-overview-list">
+      {items.map((item) => {
+        const isSelected = item.workflow_id === selectedWorkflowId;
+        return (
+          <button
+            key={item.workflow_id}
+            type="button"
+            className={`workflow-overview-list-item ${isSelected ? "selected" : ""}`}
+            onClick={() => onSelect(item.workflow_id)}
+          >
+            <div className="workflow-overview-list-item-head">
+              <div className="workflow-overview-list-item-copy">
+                <span className="meta-label">工作流</span>
+                <strong>{item.name || item.workflow_id}</strong>
               </div>
-              {item.latest_run ? (
-                <Link className="button-link" to={`/workflows/${item.workflow_id}/runs/${item.latest_run.run_id}`}>
-                  打开最新运行
-                </Link>
-              ) : null}
+              <span className={`status-pill ${toneFromStatus(item.latest_run?.status)}`}>
+                {localizeRunStatus(item.latest_run?.status)}
+              </span>
             </div>
-            <div className="workflow-card-copy">
-              <strong>{item.name || item.workflow_id}</strong>
-              <div className="subtle">查看当前图结构、编辑节点 Markdown，或进入最近一次执行详情。</div>
+            <div className="workflow-overview-list-item-id">{item.workflow_id}</div>
+            <div className="workflow-overview-list-item-meta">
+              <span>节点 {item.node_count}</span>
+              <span>{item.latest_run?.started_at || "尚未运行"}</span>
             </div>
-            <div className="workflow-meta-grid">
-              <div>
-                <span className="meta-label">节点数</span>
-                <strong>{item.node_count}</strong>
-              </div>
-              <div>
-                <span className="meta-label">最新运行</span>
-                <strong>{item.latest_run?.run_id || "-"}</strong>
-              </div>
-              <div>
-                <span className="meta-label">开始时间</span>
-                <strong>{item.latest_run?.started_at || "-"}</strong>
-              </div>
-            </div>
-          </div>
-          <div className="actions-cell">
-            <Link className="button-link" to={`/workflows/${item.workflow_id}`}>
-              打开
-            </Link>
-            <button className="ghost-button" onClick={() => onRun(item.workflow_id)}>
-              运行
-            </button>
-            <button className="ghost-button" onClick={() => onCopy(item.workflow_id)}>
-              复制
-            </button>
-          </div>
-        </article>
-      ))}
+          </button>
+        );
+      })}
     </div>
   );
 }
