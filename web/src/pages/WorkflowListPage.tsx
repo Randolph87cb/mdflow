@@ -24,9 +24,6 @@ export function WorkflowListPage() {
   const navigate = useNavigate();
 
   const workflowCount = items.length;
-  const recentRunCount = items.filter((item) => item.latest_run).length;
-  const runningCount = items.filter((item) => item.latest_run?.status.toLowerCase() === "running").length;
-  const failedCount = items.filter((item) => item.latest_run?.status.toLowerCase() === "failed").length;
   const selectedSummary = items.find((item) => item.workflow_id === selectedWorkflowId) ?? null;
   const selectedLatestRun = selectedSummary?.latest_run ?? null;
 
@@ -88,35 +85,59 @@ export function WorkflowListPage() {
   return (
     <div className="page workflow-list-page workflow-overview-page">
       <section className="workflow-overview-hero panel">
-        <div className="workflow-overview-hero-copy">
-          <div className="eyebrow">Workflow Overview</div>
-          <h1>工作流总览驾驶舱</h1>
-          <p>从一个页面完成工作流筛选、结构预览与关键操作，再进入详情页或运行页做深入处理。</p>
-        </div>
-        <div className="workflow-overview-focus">
-          <span className={`status-pill ${headlineStatus.tone}`}>{headlineStatus.label}</span>
-          <strong>{selectedWorkflow?.name || selectedSummary?.name || selectedWorkflowId || "暂无工作流"}</strong>
-          <div className="subtle">当前焦点工作流</div>
-          <div className="workflow-overview-focus-id">{selectedWorkflowId || "等待加载"}</div>
-        </div>
-        <div className="workflow-overview-hero-metrics">
-          <div className="workflow-overview-hero-metric">
-            <span className="meta-label">工作流总数</span>
-            <strong>{workflowCount}</strong>
+        {selectedWorkflowId ? (
+          <>
+            <div className="workflow-current-main">
+              <div className="eyebrow">当前工作流</div>
+              <div className="workflow-current-heading">
+                <h1>{selectedWorkflow?.workflow_id || selectedWorkflowId}</h1>
+                <span className={`status-pill ${headlineStatus.tone}`}>{headlineStatus.label}</span>
+              </div>
+              <div className="workflow-current-name">
+                {selectedWorkflow?.name || selectedSummary?.name || "未命名工作流"}
+              </div>
+              <div className="workflow-current-path-block">
+                <span className="meta-label">工作流路径</span>
+                <div className="workflow-current-path">
+                  {selectedWorkflow?.workflow_path || "正在加载工作流路径..."}
+                </div>
+              </div>
+            </div>
+
+            <div className="workflow-current-meta">
+              <div className="workflow-current-card">
+                <span className="meta-label">入口节点</span>
+                <strong>{selectedWorkflow?.entry || "-"}</strong>
+              </div>
+              <div className="workflow-current-card">
+                <span className="meta-label">节点数</span>
+                <strong>{selectedWorkflow?.node_count ?? selectedSummary?.node_count ?? 0}</strong>
+              </div>
+              <div className="workflow-current-card">
+                <span className="meta-label">最终产物</span>
+                <strong>{selectedWorkflow?.final_outputs.length ?? 0} 个</strong>
+              </div>
+              <div className="workflow-current-card">
+                <span className="meta-label">最新状态</span>
+                <strong>{headlineStatus.label}</strong>
+              </div>
+              <div className="workflow-current-card">
+                <span className="meta-label">最新运行时间</span>
+                <strong>{selectedLatestRun?.started_at || "暂无运行"}</strong>
+              </div>
+              <div className="workflow-current-card">
+                <span className="meta-label">最新运行 ID</span>
+                <strong>{selectedLatestRun?.run_id || "暂无运行"}</strong>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="workflow-current-empty">
+            <div className="eyebrow">当前工作流</div>
+            <strong>请选择左侧工作流</strong>
+            <div className="subtle">选中后会在这里显示当前工作流摘要、最新状态和路径信息。</div>
           </div>
-          <div className="workflow-overview-hero-metric">
-            <span className="meta-label">近期活跃</span>
-            <strong>{recentRunCount}</strong>
-          </div>
-          <div className="workflow-overview-hero-metric">
-            <span className="meta-label">运行中</span>
-            <strong>{runningCount}</strong>
-          </div>
-          <div className="workflow-overview-hero-metric">
-            <span className="meta-label">需要关注</span>
-            <strong>{failedCount}</strong>
-          </div>
-        </div>
+        )}
       </section>
 
       <section className="workflow-overview-layout">
