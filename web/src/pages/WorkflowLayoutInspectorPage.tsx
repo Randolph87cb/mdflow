@@ -34,6 +34,7 @@ export function WorkflowLayoutInspectorPage() {
   const [selectedId, setSelectedId] = useState<WorkflowLayoutId>("hero");
   const [overrides, setOverrides] = useState<WorkflowLayoutOverrides>({});
   const [hydrated, setHydrated] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(true);
 
   useEffect(() => {
     setOverrides(readWorkflowLayoutOverrides());
@@ -82,37 +83,52 @@ export function WorkflowLayoutInspectorPage() {
 
   return (
     <div className="page workflow-layout-inspector-page">
-      <section className="layout-inspector-shell">
-        <div className="layout-inspector-stage panel">
-          <div className="panel-header layout-inspector-stage-header">
+      <div className="layout-inspector-stage">
+        <WorkflowOverviewWorkbench
+          inspector={{
+            enabled: true,
+            selectedId,
+            overrides,
+            onSelect: (layoutId) => {
+              setSelectedId(layoutId);
+              setPanelOpen(true);
+            },
+          }}
+        />
+      </div>
+
+      <div className="layout-inspector-toolbar">
+        <div className="layout-inspector-toolbar-card">
+          <div className="layout-inspector-toolbar-copy">
             <div>
-              <strong>Workflow 页面 Inspector</strong>
+              <strong>Inspector</strong>
               <div className="subtle">
-                直接点页面里的模块，再在右侧输入 CSS 布局值。支持 `320px`、`48%`、`1fr`、`calc(100vh - 240px)`。
+                当前元素：{WORKFLOW_LAYOUT_LABELS[selectedId]}
               </div>
             </div>
-            <div className="layout-inspector-stage-actions">
-              <Link className="ghost-button" to="/">
-                返回首页
-              </Link>
-              <button className="ghost-button" type="button" onClick={resetAll}>
-                清空全部覆盖
-              </button>
-            </div>
           </div>
-          <div className="layout-inspector-canvas">
-            <WorkflowOverviewWorkbench
-              inspector={{
-                enabled: true,
-                selectedId,
-                overrides,
-                onSelect: setSelectedId,
-              }}
-            />
+          <div className="layout-inspector-toolbar-actions">
+            <button className="ghost-button" type="button" onClick={() => setPanelOpen((current) => !current)}>
+              {panelOpen ? "隐藏设置窗" : "显示设置窗"}
+            </button>
+            <button className="ghost-button" type="button" onClick={resetAll}>
+              清空全部覆盖
+            </button>
+            <Link className="ghost-button" to="/">
+              返回首页
+            </Link>
           </div>
         </div>
+      </div>
 
-        <aside className="layout-inspector-sidebar panel">
+      <aside className={`layout-inspector-sidebar panel ${panelOpen ? "open" : "closed"}`}>
+        <div className="layout-inspector-sidebar-handle">
+          <button className="ghost-button" type="button" onClick={() => setPanelOpen((current) => !current)}>
+            {panelOpen ? "收起" : "展开"}
+          </button>
+        </div>
+        {panelOpen ? (
+          <>
           <div className="panel-header">
             <div>
               <strong>布局设置</strong>
@@ -168,8 +184,9 @@ export function WorkflowLayoutInspectorPage() {
               <pre className="code-block layout-inspector-code">{configPreview}</pre>
             </div>
           </div>
-        </aside>
-      </section>
+          </>
+        ) : null}
+      </aside>
     </div>
   );
 }

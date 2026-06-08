@@ -812,50 +812,49 @@ a:focus-visible,
 }
 
 .workflow-layout-inspector-page {
+  position: relative;
   min-height: calc(100vh - 44px);
 }
 
-.layout-inspector-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) 380px;
-  gap: 18px;
-  align-items: start;
-}
-
-.layout-inspector-stage,
-.layout-inspector-sidebar {
-  min-height: calc(100vh - 64px);
-}
-
 .layout-inspector-stage {
+  min-height: calc(100vh - 44px);
+}
+
+.layout-inspector-toolbar {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.layout-inspector-toolbar-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  max-width: min(720px, calc(100vw - 64px));
+  padding: 12px 14px;
+  border: 1px solid rgba(203, 184, 255, 0.34);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 18px 34px rgba(195, 180, 219, 0.22);
+  backdrop-filter: blur(18px);
+  pointer-events: auto;
+}
+
+.layout-inspector-toolbar-copy {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.layout-inspector-stage-header {
-  align-items: flex-start;
-}
-
-.layout-inspector-stage-actions {
+.layout-inspector-toolbar-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.layout-inspector-canvas {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: 18px;
-  background:
-    linear-gradient(rgba(214, 197, 230, 0.2) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(214, 197, 230, 0.2) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(255, 253, 250, 0.96) 0%, rgba(249, 245, 255, 0.96) 100%);
-  background-size: 28px 28px, 28px 28px, auto;
-}
-
-.workflow-overview-page-inspector {
-  min-width: 1100px;
+  margin-left: auto;
 }
 
 .layout-inspectable {
@@ -909,8 +908,27 @@ a:focus-visible,
 }
 
 .layout-inspector-sidebar {
+  position: fixed;
+  top: 92px;
+  right: 22px;
+  z-index: 45;
+  width: min(420px, calc(100vw - 44px));
+  max-height: calc(100vh - 114px);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+}
+
+.layout-inspector-sidebar.closed {
+  width: auto;
+}
+
+.layout-inspector-sidebar-handle {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 14px 0;
 }
 
 .layout-inspector-sidebar-body {
@@ -989,6 +1007,10 @@ a:focus-visible,
 
 .layout-inspector-code {
   max-height: 280px;
+}
+
+body:has(.workflow-layout-inspector-page) .app-main {
+  padding-right: 22px;
 }
 
 .workflow-card-list,
@@ -1544,13 +1566,17 @@ a:focus-visible,
     grid-template-columns: 1fr;
   }
 
-  .layout-inspector-shell {
-    grid-template-columns: 1fr;
+  .layout-inspector-toolbar {
+    left: 22px;
+    right: 22px;
   }
 
-  .layout-inspector-stage,
+  .layout-inspector-toolbar-card {
+    max-width: none;
+  }
+
   .layout-inspector-sidebar {
-    min-height: 0;
+    width: min(420px, calc(100vw - 44px));
   }
 
   .workflow-overview-action-grid {
@@ -1577,6 +1603,15 @@ a:focus-visible,
 
   .layout-inspector-field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .layout-inspector-toolbar-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .layout-inspector-toolbar-actions {
+    margin-left: 0;
   }
 
   .workflow-current-meta {
@@ -1625,6 +1660,21 @@ a:focus-visible,
   .workflow-overview-action-grid,
   .workflow-current-meta {
     grid-template-columns: 1fr;
+  }
+
+  .layout-inspector-toolbar {
+    top: 12px;
+    left: 16px;
+    right: 16px;
+  }
+
+  .layout-inspector-sidebar {
+    top: auto;
+    right: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: auto;
+    max-height: min(70vh, 720px);
   }
 
   .workflow-overview-graph-frame,
