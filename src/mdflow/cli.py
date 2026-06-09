@@ -28,10 +28,6 @@ def build_parser() -> argparse.ArgumentParser:
     rerun_parser.add_argument("--from", dest="from_node", required=True)
     rerun_parser.add_argument("--run-id")
 
-    serve_parser = subparsers.add_parser("serve")
-    serve_parser.add_argument("--host", default="127.0.0.1")
-    serve_parser.add_argument("--port", type=int, default=7832)
-
     show_parser = subparsers.add_parser("show")
     show_parser.add_argument("run_dir")
 
@@ -54,8 +50,6 @@ def main(argv: list[str] | None = None) -> int:
             return command_run(config, args.workflow, args.input, args.run_id)
         if args.command == "rerun":
             return command_rerun(config, args.run_dir, args.from_node, args.run_id)
-        if args.command == "serve":
-            return command_serve(config, args.host, args.port)
         if args.command == "show":
             return command_show(config, args.run_dir)
         if args.command == "cat":
@@ -129,15 +123,6 @@ def command_rerun(config, old_run_arg: str, from_node: str, run_id: str | None) 
     print(f"failed_node: {state.current_node}")
     print("status: failed")
     return 1
-
-
-def command_serve(config, host: str, port: int) -> int:
-    import uvicorn
-
-    from mdflow.studio.app import create_app
-
-    uvicorn.run(create_app(config.project_root), host=host, port=port)
-    return 0
 
 
 def command_show(config, run_arg: str) -> int:
