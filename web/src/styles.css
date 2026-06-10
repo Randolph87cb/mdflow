@@ -910,8 +910,11 @@ textarea:focus-visible {
   position: absolute;
   z-index: 2;
   display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
   gap: 1px;
   padding: 6px;
+  white-space: nowrap;
   border-radius: 14px;
   background: rgba(22, 39, 54, 0.92);
   box-shadow: 0 16px 30px rgba(17, 35, 50, 0.22);
@@ -920,13 +923,14 @@ textarea:focus-visible {
 .selected-node-toolbar::after {
   content: "";
   position: absolute;
-  left: 24px;
+  left: calc(var(--arrow-offset, 28px) - 8px);
   bottom: -8px;
   border: 8px solid transparent;
   border-top-color: rgba(22, 39, 54, 0.92);
 }
 
 .selected-node-toolbar button {
+  flex: 0 0 auto;
   height: 34px;
   padding: 0 12px;
   border: 0;
@@ -934,6 +938,7 @@ textarea:focus-visible {
   background: transparent;
   color: rgba(245, 249, 252, 0.92);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .selected-node-toolbar button:hover {

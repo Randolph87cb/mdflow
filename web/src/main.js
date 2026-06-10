@@ -3,6 +3,15 @@ import { workflows } from "./data.js";
 
 const app = document.querySelector("#app");
 const zoomLevels = [0.9, 1, 1.12];
+const canvasMetrics = {
+  width: 720,
+  height: 690,
+  nodeWidth: 170,
+  nodeHeight: 184,
+  toolbarWidth: 288,
+  toolbarHeight: 46,
+  canvasPadding: 16
+};
 
 const state = {
   query: "",
@@ -136,12 +145,35 @@ function renderDetailEdges(workflow) {
     .map(([fromKey, toKey]) => {
       const from = nodeMap.get(fromKey);
       const to = nodeMap.get(toKey);
-      const x1 = from.x + 170;
-      const y1 = from.y + 70;
-      const x2 = to.x;
-      const y2 = to.y + 70;
-      const curve = Math.max(36, Math.abs(x2 - x1) * 0.34);
-      return `<path d="M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}" class="detail-edge" />`;
+      const startX = from.x + canvasMetrics.nodeWidth;
+      const startY = from.y + canvasMetrics.nodeHeight / 2;
+      const endX = to.x;
+      const endY = to.y + canvasMetrics.nodeHeight / 2;
+      const offset = Math.max(28, Math.min(42, Math.abs(endX - startX) * 0.28));
+      const midX = startX + Math.max(offset, (endX - startX) / 2);
+      const radius = 16;
+
+      if (Math.abs(endY - startY) < 8) {
+        return `<path d="M ${startX} ${startY} L ${endX} ${endY}" class="detail-edge" />`;
+      }
+
+      const verticalDirection = endY > startY ? 1 : -1;
+      const firstTurnY = startY;
+      const secondTurnY = endY - radius * verticalDirection;
+      const entryX = endX - radius;
+
+      return `
+        <path
+          d="M ${startX} ${startY}
+             L ${midX - radius} ${firstTurnY}
+             Q ${midX} ${firstTurnY} ${midX} ${firstTurnY + radius * verticalDirection}
+             L ${midX} ${secondTurnY}
+             Q ${midX} ${endY} ${midX + radius} ${endY}
+             L ${entryX} ${endY}
+             Q ${endX} ${endY} ${endX} ${endY}"
+          class="detail-edge"
+        />
+      `;
     })
     .join("");
 }
@@ -382,8 +414,23 @@ function renderDetailPage(workflowId) {
   const selectedNode = getNodeByKey(workflow, state.selectedNodeKey);
   const relations = getNodeRelations(workflow, selectedNode.key);
   const zoom = zoomLevels[state.zoomIndex];
-  const selectedToolbarLeft = Math.max(18, selectedNode.x + 16);
-  const selectedToolbarTop = Math.max(16, selectedNode.y - 66);
+  const nodeCenterX = selectedNode.x + canvasMetrics.nodeWidth / 2;
+  const unclampedToolbarLeft = nodeCenterX - canvasMetrics.toolbarWidth / 2;
+  const selectedToolbarLeft = Math.max(
+    canvasMetrics.canvasPadding,
+    Math.min(
+      unclampedToolbarLeft,
+      canvasMetrics.width - canvasMetrics.toolbarWidth - canvasMetrics.canvasPadding
+    )
+  );
+  const selectedToolbarTop = Math.max(
+    canvasMetrics.canvasPadding,
+    selectedNode.y - canvasMetrics.toolbarHeight - 22
+  );
+  const toolbarArrowOffset = Math.max(
+    28,
+    Math.min(canvasMetrics.toolbarWidth - 28, nodeCenterX - selectedToolbarLeft)
+  );
   const lines = selectedNode.markdown.split("\n");
 
   state.selectedWorkflowId = workflow.id;
@@ -460,7 +507,7 @@ function renderDetailPage(workflowId) {
             <div class="canvas-board-shell">
               <div class="canvas-board" style="transform: scale(${zoom});">
                 <svg viewBox="0 0 720 690" class="detail-canvas-svg" aria-hidden="true">${renderDetailEdges(workflow)}</svg>
-                <div class="selected-node-toolbar" style="left:${selectedToolbarLeft}px; top:${selectedToolbarTop}px;">
+                <div class="selected-node-toolbar" style="left:${selectedToolbarLeft}px; top:${selectedToolbarTop}px; --arrow-offset:${toolbarArrowOffset}px;">
                   <button data-action="announce" data-message="当前节点已经处于画布中心附近。">定位</button>
                   <button data-action="toggle-preview">预览</button>
                   <button data-action="run-node">运行此节点</button>
