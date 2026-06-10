@@ -9,5 +9,7 @@
 runs/*
 !runs/.gitkeep
 
+web/node_modules/
+web/dist/
 .playwright-mcp/
 *.egg-info/
