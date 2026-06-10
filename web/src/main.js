@@ -10,10 +10,10 @@ const state = {
 };
 
 const statusLabel = {
-  failed: "Failed",
-  success: "Success",
-  running: "Running",
-  idle: "Idle"
+  failed: "失败",
+  success: "成功",
+  running: "运行中",
+  idle: "未运行"
 };
 
 function filterWorkflows() {
@@ -63,7 +63,7 @@ function renderGraph(workflow) {
     .join("");
 
   return `
-    <svg viewBox="0 0 940 300" class="graph-svg" aria-label="${workflow.name} workflow graph preview">
+    <svg viewBox="0 0 940 300" class="graph-svg" aria-label="${workflow.name} 工作流预览图">
       <defs>
         <linearGradient id="edgeGlow" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="rgba(88, 180, 161, 0.16)" />
@@ -100,44 +100,44 @@ function render() {
         <div class="brand-group">
           <div class="brand-mark">m</div>
           <div>
-            <div class="brand-kicker">Workflow Studio</div>
+            <div class="brand-kicker">工作流总览</div>
             <div class="brand-title">mdflow</div>
           </div>
         </div>
         <div class="toolbar">
           <label class="search-field">
             <span class="search-icon">⌕</span>
-            <input id="search-input" type="search" placeholder="Search workflow by name or id" value="${state.query}" />
+            <input id="search-input" type="search" placeholder="搜索工作流名称或 ID" value="${state.query}" />
           </label>
           <label class="filter-field">
-            <span>Status</span>
+            <span>状态</span>
             <select id="filter-select">
-              <option value="all" ${state.filter === "all" ? "selected" : ""}>All</option>
-              <option value="running" ${state.filter === "running" ? "selected" : ""}>Running</option>
-              <option value="failed" ${state.filter === "failed" ? "selected" : ""}>Failed</option>
-              <option value="idle" ${state.filter === "idle" ? "selected" : ""}>Idle</option>
+              <option value="all" ${state.filter === "all" ? "selected" : ""}>全部</option>
+              <option value="running" ${state.filter === "running" ? "selected" : ""}>运行中</option>
+              <option value="failed" ${state.filter === "failed" ? "selected" : ""}>失败</option>
+              <option value="idle" ${state.filter === "idle" ? "selected" : ""}>未运行</option>
             </select>
           </label>
-          <button class="toolbar-button toolbar-button-primary">New Workflow</button>
-          <button class="toolbar-button">Import</button>
+          <button class="toolbar-button toolbar-button-primary">新建工作流</button>
+          <button class="toolbar-button">导入</button>
         </div>
       </header>
       <main class="workspace">
         <aside class="workflow-rail">
           <div class="rail-header">
             <div>
-              <div class="section-kicker">Workflows</div>
-              <h1>${filteredWorkflows.length} visible</h1>
+              <div class="section-kicker">工作流列表</div>
+              <h1>当前显示 ${filteredWorkflows.length} 个</h1>
             </div>
-            <span class="muted-chip">${workflows.length} total</span>
+            <span class="muted-chip">共 ${workflows.length} 个</span>
           </div>
           <div class="workflow-list">
             ${
               filteredWorkflows.length === 0
                 ? `
                   <div class="empty-list">
-                    <strong>No workflows found</strong>
-                    <p>Adjust the keyword or clear the status filter.</p>
+                    <strong>没有匹配的工作流</strong>
+                    <p>试试更换关键词，或清空当前筛选条件。</p>
                   </div>
                 `
                 : filteredWorkflows
@@ -154,7 +154,7 @@ function render() {
                           </div>
                           <div class="workflow-row-bottom">
                             <span>${workflow.id}</span>
-                            <span>${workflow.nodeCount} nodes</span>
+                            <span>${workflow.nodeCount} 个节点</span>
                           </div>
                         </button>
                       `
@@ -170,7 +170,7 @@ function render() {
                 <div class="preview-panel-inner">
                   <div class="preview-header">
                     <div>
-                      <div class="section-kicker">Selected workflow</div>
+                      <div class="section-kicker">当前工作流</div>
                       <div class="preview-title-row">
                         <h2>${selectedWorkflow.name}</h2>
                         <span class="status-pill status-${selectedWorkflow.status}">${statusLabel[selectedWorkflow.status]}</span>
@@ -183,59 +183,59 @@ function render() {
                     </div>
                   </div>
                   <div class="action-bar">
-                    <button class="action-button">Open Details</button>
-                    <button class="action-button" ${selectedWorkflow.latestRunId === "No runs yet" ? "disabled" : ""}>Open Latest Run</button>
-                    <button class="action-button action-button-primary">Run</button>
-                    <button class="action-button">Duplicate</button>
+                    <button class="action-button">打开详情</button>
+                    <button class="action-button" ${selectedWorkflow.latestRunId === "暂无运行记录" ? "disabled" : ""}>打开最新运行</button>
+                    <button class="action-button action-button-primary">运行</button>
+                    <button class="action-button">复制</button>
                   </div>
                   <div class="preview-body">
                     <section class="workflow-meta-card">
                       <div class="meta-callout">${selectedWorkflow.blurb}</div>
                       <div class="meta-summary">
                         <div class="summary-chip">
-                          <span>Entry</span>
+                          <span>入口节点</span>
                           <strong>${selectedWorkflow.entryNode}</strong>
                         </div>
                         <div class="summary-chip">
-                          <span>Nodes</span>
+                          <span>节点数</span>
                           <strong>${selectedWorkflow.nodeCount}</strong>
                         </div>
                         <div class="summary-chip">
-                          <span>Outputs</span>
+                          <span>产物数</span>
                           <strong>${selectedWorkflow.outputs}</strong>
                         </div>
                         <div class="summary-chip">
-                          <span>Edited</span>
+                          <span>最后编辑</span>
                           <strong>${selectedWorkflow.lastEdited}</strong>
                         </div>
                       </div>
                       <div class="run-spotlight">
                         <div class="run-spotlight-copy">
-                          <span>Latest run</span>
+                          <span>最近一次运行</span>
                           <strong>${selectedWorkflow.latestRunId}</strong>
-                          <p>${selectedWorkflow.lastRunRelative === "Never" ? "No execution history yet." : `Most recent execution updated ${selectedWorkflow.lastRunRelative}.`}</p>
+                          <p>${selectedWorkflow.lastRunRelative === "未运行" ? "这个工作流还没有执行记录。" : `最近一次执行更新于 ${selectedWorkflow.lastRunRelative}。`}</p>
                         </div>
-                        <button class="spotlight-button" ${selectedWorkflow.latestRunId === "No runs yet" ? "disabled" : ""}>Open Run</button>
+                        <button class="spotlight-button" ${selectedWorkflow.latestRunId === "暂无运行记录" ? "disabled" : ""}>打开运行</button>
                       </div>
                       <div class="meta-footnote">
-                        This overview keeps editing out of the way: pick the workflow here, then jump into details when you want the full canvas.
+                        这里专注于浏览与分发动作，不直接编辑节点；需要进入完整画布时，再跳转到详情页处理。
                       </div>
                     </section>
                     <section class="graph-card">
                       <div class="graph-card-header">
                         <div>
-                          <div class="section-kicker">Graph preview</div>
-                          <h3>Workflow topology</h3>
+                          <div class="section-kicker">流程预览</div>
+                          <h3>工作流拓扑</h3>
                         </div>
-                        <div class="graph-card-note">Preview only, edit happens in details</div>
+                        <div class="graph-card-note">这里只看结构，节点编辑在详情页完成</div>
                       </div>
                       <div class="graph-stage">
                         ${renderGraph(selectedWorkflow)}
                       </div>
                       <div class="graph-footer">
-                        <span>Entry: ${selectedWorkflow.entryNode}</span>
-                        <span>${selectedWorkflow.nodeCount} nodes</span>
-                        <span>${selectedWorkflow.outputs} outputs</span>
+                        <span>入口：${selectedWorkflow.entryNode}</span>
+                        <span>${selectedWorkflow.nodeCount} 个节点</span>
+                        <span>${selectedWorkflow.outputs} 个产物</span>
                       </div>
                     </section>
                   </div>
@@ -243,9 +243,9 @@ function render() {
               `
               : `
                 <div class="empty-preview">
-                  <div class="section-kicker">Selected workflow</div>
-                  <h2>Pick a workflow from the left rail</h2>
-                  <p>The overview, actions, and graph preview will appear here.</p>
+                  <div class="section-kicker">当前工作流</div>
+                  <h2>从左侧选择一个工作流</h2>
+                  <p>选中后，这里会显示概览信息、高频操作和结构预览。</p>
                 </div>
               `
           }
