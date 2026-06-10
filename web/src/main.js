@@ -2,26 +2,35 @@ import "./styles.css";
 import { workflows } from "./data.js";
 
 const app = document.querySelector("#app");
+const zoomLevels = [0.9, 1, 1.12];
 
 const state = {
   query: "",
   filter: "all",
   selectedWorkflowId: workflows[0].id,
-  selectedNodeKey: workflows[0].entryNode
+  selectedNodeKey: workflows[0].entryNode,
+  detailRailExpanded: false,
+  editorMode: "edit",
+  zoomIndex: 1,
+  notice: "已对齐设计稿结构：中间画布为主，右侧固定编辑。"
 };
 
 const statusLabel = {
   failed: "失败",
-  success: "成功",
+  success: "已完成",
   running: "运行中",
   idle: "未运行"
 };
 
 const nodeTypeLabel = {
-  llm: "LLM 节点",
-  script: "脚本节点",
-  router: "路由节点"
+  markdown: "Markdown",
+  python: "Python",
+  shell: "Shell"
 };
+
+function escapeHtml(value) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
 
 function getWorkflowById(workflowId) {
   return workflows.find((workflow) => workflow.id === workflowId) ?? workflows[0];
@@ -31,43 +40,52 @@ function getNodeByKey(workflow, nodeKey) {
   return workflow.graph.nodes.find((node) => node.key === nodeKey) ?? workflow.graph.nodes[0];
 }
 
-function getNodeLabel(workflow, nodeKey) {
-  return getNodeByKey(workflow, nodeKey)?.label ?? "无";
+function getNodeRelations(workflow, nodeKey) {
+  const upstreams = workflow.graph.edges
+    .filter(([, to]) => to === nodeKey)
+    .map(([from]) => getNodeByKey(workflow, from).label);
+  const downstreams = workflow.graph.edges
+    .filter(([from]) => from === nodeKey)
+    .map(([, to]) => getNodeByKey(workflow, to).label);
+  return { upstreams, downstreams };
 }
 
 function parseRoute() {
   const url = new URL(window.location.href);
   const view = url.searchParams.get("view");
   const workflowId = url.searchParams.get("workflow");
-
   if (view === "detail" && workflowId) {
     return { page: "detail", workflowId };
   }
-
-  const hash = window.location.hash.replace(/^#/, "") || "/";
-  const detailMatch = hash.match(/^\/workflows\/([^/]+)$/);
-
-  if (detailMatch) {
-    return { page: "detail", workflowId: decodeURIComponent(detailMatch[1]) };
-  }
-
   return { page: "overview" };
 }
 
-function goToOverview() {
+function pushRoute(page, workflowId = "") {
   const url = new URL(window.location.href);
-  url.search = "";
+  if (page === "detail") {
+    url.searchParams.set("view", "detail");
+    url.searchParams.set("workflow", workflowId);
+  } else {
+    url.search = "";
+  }
   url.hash = "";
   window.history.pushState({}, "", url);
+}
+
+function goToOverview() {
+  pushRoute("overview");
   render();
 }
 
 function goToWorkflowDetail(workflowId) {
-  const url = new URL(window.location.href);
-  url.searchParams.set("view", "detail");
-  url.searchParams.set("workflow", workflowId);
-  url.hash = "";
-  window.history.pushState({}, "", url);
+  const workflow = getWorkflowById(workflowId);
+  state.selectedWorkflowId = workflow.id;
+  state.selectedNodeKey = workflow.entryNode;
+  state.detailRailExpanded = false;
+  state.editorMode = "edit";
+  state.zoomIndex = 1;
+  state.notice = `已打开 ${workflow.name} 的节点画布。`;
+  pushRoute("detail", workflow.id);
   render();
 }
 
@@ -78,13 +96,7 @@ function filterWorkflows() {
       normalizedQuery.length === 0 ||
       workflow.name.toLowerCase().includes(normalizedQuery) ||
       workflow.id.toLowerCase().includes(normalizedQuery);
-
-    const matchesFilter =
-      state.filter === "all" ||
-      (state.filter === "failed" && workflow.status === "failed") ||
-      (state.filter === "running" && workflow.status === "running") ||
-      (state.filter === "idle" && workflow.status === "idle");
-
+    const matchesFilter = state.filter === "all" || workflow.status === state.filter;
     return matchesQuery && matchesFilter;
   });
 }
@@ -95,16 +107,7 @@ function renderPreviewGraph(workflow) {
     .map(([fromKey, toKey]) => {
       const from = nodeMap.get(fromKey);
       const to = nodeMap.get(toKey);
-
-      return `
-        <line
-          x1="${from.x}"
-          y1="${from.y}"
-          x2="${to.x}"
-          y2="${to.y}"
-          class="graph-edge"
-        />
-      `;
+      return `<line x1="${from.x + 48}" y1="${from.y + 28}" x2="${to.x + 48}" y2="${to.y + 28}" class="graph-edge" />`;
     })
     .join("");
 
@@ -112,15 +115,15 @@ function renderPreviewGraph(workflow) {
     .map(
       (node) => `
         <g>
-          <circle cx="${node.x}" cy="${node.y}" r="28" class="graph-node graph-node-${node.state}" />
-          <text x="${node.x}" y="${node.y + 4}" text-anchor="middle" class="graph-label">${node.shortLabel}</text>
+          <circle cx="${node.x + 48}" cy="${node.y + 28}" r="26" class="graph-node graph-node-${node.state}" />
+          <text x="${node.x + 48}" y="${node.y + 32}" text-anchor="middle" class="graph-label">${escapeHtml(node.shortLabel)}</text>
         </g>
       `
     )
     .join("");
 
   return `
-    <svg viewBox="0 0 1340 380" class="graph-svg" aria-label="${workflow.name} 工作流预览图">
+    <svg viewBox="0 0 1100 340" class="graph-svg" aria-label="${escapeHtml(workflow.name)} 工作流预览图">
       ${edgeMarkup}
       ${nodeMarkup}
     </svg>
@@ -129,25 +132,93 @@ function renderPreviewGraph(workflow) {
 
 function renderDetailEdges(workflow) {
   const nodeMap = new Map(workflow.graph.nodes.map((node) => [node.key, node]));
-
   return workflow.graph.edges
     .map(([fromKey, toKey]) => {
       const from = nodeMap.get(fromKey);
       const to = nodeMap.get(toKey);
-      const x1 = from.x + 92;
-      const y1 = from.y + 60;
-      const x2 = to.x + 92;
-      const y2 = to.y + 60;
-      const curve = Math.abs(x2 - x1) * 0.36;
-
-      return `
-        <path
-          d="M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}"
-          class="detail-edge"
-        />
-      `;
+      const x1 = from.x + 170;
+      const y1 = from.y + 70;
+      const x2 = to.x;
+      const y2 = to.y + 70;
+      const curve = Math.max(36, Math.abs(x2 - x1) * 0.34);
+      return `<path d="M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}" class="detail-edge" />`;
     })
     .join("");
+}
+
+function renderMarkdownPreview(markdown) {
+  const lines = markdown.split("\n");
+  const blocks = [];
+  let inCode = false;
+  let codeLines = [];
+  let listItems = [];
+
+  function flushList() {
+    if (listItems.length) {
+      blocks.push(`<ul>${listItems.map((item) => `<li>${item}</li>`).join("")}</ul>`);
+      listItems = [];
+    }
+  }
+
+  function flushCode() {
+    if (codeLines.length) {
+      blocks.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+      codeLines = [];
+    }
+  }
+
+  for (const line of lines) {
+    if (line.startsWith("```")) {
+      if (inCode) {
+        flushCode();
+        inCode = false;
+      } else {
+        flushList();
+        inCode = true;
+      }
+      continue;
+    }
+
+    if (inCode) {
+      codeLines.push(line);
+      continue;
+    }
+
+    if (line.startsWith("### ")) {
+      flushList();
+      blocks.push(`<h3>${escapeHtml(line.slice(4))}</h3>`);
+      continue;
+    }
+
+    if (line.startsWith("## ")) {
+      flushList();
+      blocks.push(`<h2>${escapeHtml(line.slice(3))}</h2>`);
+      continue;
+    }
+
+    if (line.startsWith("# ")) {
+      flushList();
+      blocks.push(`<h1>${escapeHtml(line.slice(2))}</h1>`);
+      continue;
+    }
+
+    if (line.startsWith("- ")) {
+      listItems.push(escapeHtml(line.slice(2)));
+      continue;
+    }
+
+    if (line.trim().length === 0) {
+      flushList();
+      continue;
+    }
+
+    flushList();
+    blocks.push(`<p>${escapeHtml(line)}</p>`);
+  }
+
+  flushList();
+  flushCode();
+  return blocks.join("");
 }
 
 function renderShell(content) {
@@ -161,7 +232,6 @@ function renderShell(content) {
 }
 
 function renderOverviewPage() {
-  document.title = "mdflow 工作流总览";
   const filteredWorkflows = filterWorkflows();
   const selectedWorkflow =
     filteredWorkflows.find((workflow) => workflow.id === state.selectedWorkflowId) ??
@@ -170,7 +240,10 @@ function renderOverviewPage() {
 
   if (selectedWorkflow) {
     state.selectedWorkflowId = selectedWorkflow.id;
+    state.selectedNodeKey = selectedWorkflow.entryNode;
   }
+
+  document.title = "mdflow 工作流总览";
 
   renderShell(`
     <header class="topbar">
@@ -184,19 +257,20 @@ function renderOverviewPage() {
       <div class="toolbar">
         <label class="search-field">
           <span class="search-icon">⌕</span>
-          <input id="search-input" type="search" placeholder="搜索工作流名称或 ID" value="${state.query}" />
+          <input id="search-input" type="search" placeholder="搜索工作流名称或 ID" value="${escapeHtml(state.query)}" />
         </label>
         <label class="filter-field">
           <span>状态</span>
           <select id="filter-select">
             <option value="all" ${state.filter === "all" ? "selected" : ""}>全部</option>
             <option value="running" ${state.filter === "running" ? "selected" : ""}>运行中</option>
+            <option value="success" ${state.filter === "success" ? "selected" : ""}>已完成</option>
             <option value="failed" ${state.filter === "failed" ? "selected" : ""}>失败</option>
             <option value="idle" ${state.filter === "idle" ? "selected" : ""}>未运行</option>
           </select>
         </label>
-        <button class="toolbar-button toolbar-button-primary">新建工作流</button>
-        <button class="toolbar-button">导入</button>
+        <button class="toolbar-button toolbar-button-primary" data-action="announce" data-message="新建工作流入口仅做视觉占位。">新建工作流</button>
+        <button class="toolbar-button" data-action="announce" data-message="导入入口仅做视觉占位。">导入</button>
       </div>
     </header>
     <main class="workspace">
@@ -211,21 +285,13 @@ function renderOverviewPage() {
         <div class="workflow-list">
           ${
             filteredWorkflows.length === 0
-              ? `
-                <div class="empty-list">
-                  <strong>没有匹配的工作流</strong>
-                  <p>试试更换关键词，或清空当前筛选条件。</p>
-                </div>
-              `
+              ? `<div class="empty-list"><strong>没有匹配的工作流</strong><p>试试更换关键词，或清空当前筛选条件。</p></div>`
               : filteredWorkflows
                   .map(
                     (workflow) => `
-                      <button
-                        class="workflow-row ${workflow.id === state.selectedWorkflowId ? "selected" : ""}"
-                        data-select-workflow="${workflow.id}"
-                      >
+                      <button class="workflow-row ${workflow.id === state.selectedWorkflowId ? "selected" : ""}" data-action="select-workflow" data-workflow-id="${workflow.id}">
                         <div class="workflow-row-top">
-                          <strong>${workflow.name}</strong>
+                          <strong>${escapeHtml(workflow.name)}</strong>
                           <span class="status-pill status-${workflow.status}">${statusLabel[workflow.status]}</span>
                           <span class="workflow-time">${workflow.lastRunRelative}</span>
                         </div>
@@ -249,42 +315,30 @@ function renderOverviewPage() {
                   <div>
                     <div class="section-kicker">当前工作流</div>
                     <div class="preview-title-row">
-                      <h2>${selectedWorkflow.name}</h2>
+                      <h2>${escapeHtml(selectedWorkflow.name)}</h2>
                       <span class="status-pill status-${selectedWorkflow.status}">${statusLabel[selectedWorkflow.status]}</span>
                     </div>
                     <div class="preview-id">${selectedWorkflow.id}</div>
                     <div class="preview-path">${selectedWorkflow.path}</div>
                   </div>
                   <div class="preview-tags">
-                    ${selectedWorkflow.tags.map((tag) => `<span>${tag}</span>`).join("")}
+                    ${selectedWorkflow.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
                   </div>
                 </div>
                 <div class="action-bar">
-                  <button class="action-button" data-open-detail="${selectedWorkflow.id}">打开详情</button>
-                  <button class="action-button" ${selectedWorkflow.latestRunId === "暂无运行记录" ? "disabled" : ""}>打开最新运行</button>
-                  <button class="action-button action-button-primary">运行</button>
-                  <button class="action-button">复制</button>
+                  <button class="action-button action-button-primary" data-action="open-detail" data-workflow-id="${selectedWorkflow.id}">打开详情</button>
+                  <button class="action-button" data-action="announce" data-message="最新运行页还未开始设计。">打开最新运行</button>
+                  <button class="action-button" data-action="announce" data-message="运行入口已预留，当前是静态原型。">运行</button>
+                  <button class="action-button" data-action="announce" data-message="复制入口已预留，当前是静态原型。">复制</button>
                 </div>
                 <div class="preview-body">
                   <section class="workflow-meta-card">
-                    <div class="meta-callout">${selectedWorkflow.blurb}</div>
+                    <div class="meta-callout">${escapeHtml(selectedWorkflow.blurb)}</div>
                     <div class="meta-summary">
-                      <div class="summary-chip">
-                        <span>入口节点</span>
-                        <strong>${selectedWorkflow.entryLabel}</strong>
-                      </div>
-                      <div class="summary-chip">
-                        <span>节点数</span>
-                        <strong>${selectedWorkflow.nodeCount}</strong>
-                      </div>
-                      <div class="summary-chip">
-                        <span>产物数</span>
-                        <strong>${selectedWorkflow.outputs}</strong>
-                      </div>
-                      <div class="summary-chip">
-                        <span>最后编辑</span>
-                        <strong>${selectedWorkflow.lastEdited}</strong>
-                      </div>
+                      <div class="summary-chip"><span>入口节点</span><strong>${escapeHtml(selectedWorkflow.entryLabel)}</strong></div>
+                      <div class="summary-chip"><span>节点数</span><strong>${selectedWorkflow.nodeCount}</strong></div>
+                      <div class="summary-chip"><span>产物数</span><strong>${selectedWorkflow.outputs}</strong></div>
+                      <div class="summary-chip"><span>最后编辑</span><strong>${selectedWorkflow.lastEdited}</strong></div>
                     </div>
                     <div class="run-spotlight">
                       <div class="run-spotlight-copy">
@@ -292,11 +346,9 @@ function renderOverviewPage() {
                         <strong>${selectedWorkflow.latestRunId}</strong>
                         <p>${selectedWorkflow.lastRunRelative === "未运行" ? "这个工作流还没有执行记录。" : `最近一次执行更新于 ${selectedWorkflow.lastRunRelative}。`}</p>
                       </div>
-                      <button class="spotlight-button" ${selectedWorkflow.latestRunId === "暂无运行记录" ? "disabled" : ""}>打开运行</button>
+                      <button class="spotlight-button" data-action="announce" data-message="运行态页面下一步再设计。">打开运行</button>
                     </div>
-                    <div class="meta-footnote">
-                      这里专注于浏览与分发动作，不直接编辑节点；需要进入完整画布时，再跳转到详情页处理。
-                    </div>
+                    <div class="meta-footnote">这一页只负责快速选择与分发动作；真正的节点阅读与 Markdown 编辑已经切到详情页承载。</div>
                   </section>
                   <section class="graph-card">
                     <div class="graph-card-header">
@@ -304,13 +356,13 @@ function renderOverviewPage() {
                         <div class="section-kicker">流程预览</div>
                         <h3>工作流拓扑</h3>
                       </div>
-                      <div class="graph-card-note">这里只看结构，节点编辑在详情页完成</div>
+                      <div class="graph-card-note">点击预览直接进入详情页</div>
                     </div>
-                    <button class="graph-stage graph-stage-button" data-open-detail="${selectedWorkflow.id}">
+                    <button class="graph-stage graph-stage-button" data-action="open-detail" data-workflow-id="${selectedWorkflow.id}">
                       ${renderPreviewGraph(selectedWorkflow)}
                     </button>
                     <div class="graph-footer">
-                      <span>入口：${selectedWorkflow.entryLabel}</span>
+                      <span>入口：${escapeHtml(selectedWorkflow.entryLabel)}</span>
                       <span>${selectedWorkflow.nodeCount} 个节点</span>
                       <span>${selectedWorkflow.outputs} 个产物</span>
                     </div>
@@ -318,187 +370,291 @@ function renderOverviewPage() {
                 </div>
               </div>
             `
-            : `
-              <div class="empty-preview">
-                <div class="section-kicker">当前工作流</div>
-                <h2>从左侧选择一个工作流</h2>
-                <p>选中后，这里会显示概览信息、高频操作和结构预览。</p>
-              </div>
-            `
+            : `<div class="empty-preview"><div class="section-kicker">当前工作流</div><h2>从左侧选择一个工作流</h2><p>选中后，这里会显示概览信息、高频操作和结构预览。</p></div>`
         }
       </section>
     </main>
   `);
-
-  document.querySelector("#search-input")?.addEventListener("input", (event) => {
-    state.query = event.target.value;
-    render();
-  });
-
-  document.querySelector("#filter-select")?.addEventListener("change", (event) => {
-    state.filter = event.target.value;
-    render();
-  });
-
-  document.querySelectorAll("[data-select-workflow]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedWorkflowId = button.dataset.selectWorkflow;
-      render();
-    });
-  });
-
-  document.querySelectorAll("[data-open-detail]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedWorkflowId = button.dataset.openDetail;
-      state.selectedNodeKey = getWorkflowById(state.selectedWorkflowId).entryNode;
-      goToWorkflowDetail(state.selectedWorkflowId);
-    });
-  });
 }
 
 function renderDetailPage(workflowId) {
   const workflow = getWorkflowById(workflowId);
   const selectedNode = getNodeByKey(workflow, state.selectedNodeKey);
+  const relations = getNodeRelations(workflow, selectedNode.key);
+  const zoom = zoomLevels[state.zoomIndex];
+  const selectedToolbarLeft = Math.max(18, selectedNode.x + 16);
+  const selectedToolbarTop = Math.max(16, selectedNode.y - 66);
+  const lines = selectedNode.markdown.split("\n");
+
   state.selectedWorkflowId = workflow.id;
   state.selectedNodeKey = selectedNode.key;
   document.title = `mdflow · ${workflow.name}`;
 
   renderShell(`
-    <header class="topbar detail-topbar">
-      <div class="brand-group">
-        <button class="back-button" id="back-overview">← 总览</button>
-        <div class="detail-header-copy">
-          <div class="brand-kicker">工作流详情</div>
-          <div class="brand-title">${workflow.name}</div>
-          <div class="detail-subtitle">${workflow.id} · ${workflow.path}</div>
+    <div class="detail-frame">
+      <aside class="detail-rail ${state.detailRailExpanded ? "expanded" : "collapsed"}">
+        <button class="rail-toggle" data-action="toggle-detail-rail" aria-label="${state.detailRailExpanded ? "收起左侧栏" : "展开左侧栏"}">${state.detailRailExpanded ? "‹" : "»"}</button>
+        <div class="detail-rail-icons"><span>⊞</span><span>⋯</span></div>
+        ${
+          state.detailRailExpanded
+            ? `
+              <div class="detail-rail-panel">
+                <div class="section-kicker">节点导航</div>
+                <h2>${escapeHtml(workflow.name)}</h2>
+                <div class="detail-rail-meta">
+                  <span>${workflow.nodeCount} 个节点</span>
+                  <span>${workflow.outputs} 个产物</span>
+                </div>
+                <div class="detail-node-list">
+                  ${workflow.graph.nodes
+                    .map(
+                      (node) => `
+                        <button class="detail-node-item ${node.key === selectedNode.key ? "selected" : ""}" data-action="select-node" data-node-key="${node.key}">
+                          <span class="detail-node-item-badge">${escapeHtml(node.badge)}</span>
+                          <span class="detail-node-item-copy">
+                            <strong>${escapeHtml(node.label)}</strong>
+                            <em>${escapeHtml(nodeTypeLabel[node.type])}</em>
+                          </span>
+                        </button>
+                      `
+                    )
+                    .join("")}
+                </div>
+              </div>
+            `
+            : ""
+        }
+      </aside>
+      <div class="detail-main">
+        <header class="detail-topbar">
+          <div class="detail-topbar-copy">
+            <button class="detail-back-link" data-action="go-overview">‹ 工作流详情</button>
+            <div class="detail-title-row">
+              <h1>${escapeHtml(workflow.name)}</h1>
+              <span class="workflow-state-pill">${workflow.workflowState}</span>
+            </div>
+            <div class="detail-topbar-meta">最后编辑：${workflow.lastEdited}　由 ${workflow.owner}</div>
+          </div>
+          <div class="detail-topbar-actions">
+            <button class="toolbar-button" data-action="announce" data-message="运行工作流入口已预留，当前是静态原型。">运行工作流</button>
+            <button class="toolbar-button" data-action="save-workflow">保存</button>
+            <button class="toolbar-button toolbar-button-primary" data-action="announce" data-message="发布动作已预留，待接真实能力。">发布</button>
+          </div>
+        </header>
+        <div class="detail-content">
+          <section class="canvas-surface">
+            <div class="canvas-topbar">
+              <div class="canvas-zoom-group">
+                <button class="zoom-button" data-action="zoom-out">−</button>
+                <button class="zoom-button zoom-readout" data-action="zoom-reset">${Math.round(zoom * 100)}%</button>
+                <button class="zoom-button" data-action="zoom-in">＋</button>
+                <button class="zoom-button" data-action="zoom-reset">适配</button>
+              </div>
+              <div class="canvas-legend">
+                <span><i class="legend-dot legend-idle"></i>未运行</span>
+                <span><i class="legend-dot legend-running"></i>运行中</span>
+                <span><i class="legend-dot legend-success"></i>已完成</span>
+                <span><i class="legend-dot legend-failed"></i>失败</span>
+              </div>
+            </div>
+            <div class="canvas-board-shell">
+              <div class="canvas-board" style="transform: scale(${zoom});">
+                <svg viewBox="0 0 720 690" class="detail-canvas-svg" aria-hidden="true">${renderDetailEdges(workflow)}</svg>
+                <div class="selected-node-toolbar" style="left:${selectedToolbarLeft}px; top:${selectedToolbarTop}px;">
+                  <button data-action="announce" data-message="当前节点已经处于画布中心附近。">定位</button>
+                  <button data-action="toggle-preview">预览</button>
+                  <button data-action="run-node">运行此节点</button>
+                </div>
+                ${workflow.graph.nodes
+                  .map(
+                    (node) => `
+                      <button class="canvas-node ${node.key === selectedNode.key ? "selected" : ""}" data-action="select-node" data-node-key="${node.key}" style="left:${node.x}px; top:${node.y}px;">
+                        <div class="canvas-node-head">
+                          <span class="canvas-node-badge">${escapeHtml(node.badge)}</span>
+                          <span class="canvas-node-type">${escapeHtml(nodeTypeLabel[node.type])}</span>
+                        </div>
+                        <strong>${escapeHtml(node.label)}</strong>
+                        <div class="canvas-node-path">${escapeHtml(node.file)}</div>
+                        <div class="canvas-node-subline">${escapeHtml(node.routeHint)}</div>
+                        <div class="canvas-node-output"><span>输出</span><em>${escapeHtml(node.outputHint)}</em></div>
+                      </button>
+                    `
+                  )
+                  .join("")}
+              </div>
+            </div>
+            <div class="canvas-notice">${escapeHtml(state.notice)}</div>
+          </section>
+          <aside class="editor-dock">
+            <div class="editor-dock-head">
+              <div>
+                <div class="editor-title-row">
+                  <h3>${escapeHtml(selectedNode.label)}</h3>
+                  <span class="node-type-pill">${escapeHtml(nodeTypeLabel[selectedNode.type])}</span>
+                </div>
+                <div class="editor-path">${escapeHtml(selectedNode.file)}</div>
+              </div>
+              <div class="editor-head-actions">
+                <button class="icon-button" data-action="announce" data-message="更多动作待接入。">⋯</button>
+                <button class="icon-button" data-action="announce" data-message="右侧固定栏保持打开。">×</button>
+              </div>
+            </div>
+            <div class="editor-toolbar">
+              <button class="toolbar-button ${state.editorMode === "edit" ? "toolbar-button-primary" : ""}" data-action="save-node">保存</button>
+              <button class="toolbar-button" data-action="validate-node">校验</button>
+              <button class="toolbar-button" data-action="toggle-preview">${state.editorMode === "preview" ? "返回编辑" : "预览"}</button>
+            </div>
+            ${
+              state.editorMode === "preview"
+                ? `<article class="markdown-preview">${renderMarkdownPreview(selectedNode.markdown)}</article>`
+                : `<label class="markdown-editor-shell"><textarea class="markdown-editor" spellcheck="false">${escapeHtml(selectedNode.markdown)}</textarea></label>`
+            }
+            <div class="editor-footer">
+              <span>上游：${relations.upstreams.join("、") || "无"}</span>
+              <span>下游：${relations.downstreams.join("、") || "无"}</span>
+              <span>行 ${lines.length}</span>
+            </div>
+          </aside>
         </div>
       </div>
-      <div class="toolbar">
-        <button class="toolbar-button">校验</button>
-        <button class="toolbar-button">复制工作流</button>
-        <button class="toolbar-button">查看历史运行</button>
-        <button class="toolbar-button toolbar-button-primary">运行工作流</button>
-      </div>
-    </header>
-    <main class="detail-layout">
-      <aside class="detail-sidebar">
-        <div class="detail-sidebar-section">
-          <div class="section-kicker">工作流摘要</div>
-          <h2>${workflow.name}</h2>
-          <div class="detail-sidebar-id">${workflow.id}</div>
-          <div class="detail-summary-list">
-            <div><span>入口</span><strong>${workflow.entryLabel}</strong></div>
-            <div><span>节点数</span><strong>${workflow.nodeCount}</strong></div>
-            <div><span>产物数</span><strong>${workflow.outputs}</strong></div>
-            <div><span>最近运行</span><strong>${workflow.latestRunId}</strong></div>
-          </div>
-        </div>
-        <div class="detail-sidebar-section">
-          <div class="section-kicker">节点列表</div>
-          <div class="node-list">
-            ${workflow.graph.nodes
-              .map(
-                (node, index) => `
-                  <button
-                    class="node-list-item ${node.key === selectedNode.key ? "selected" : ""}"
-                    data-select-node="${node.key}"
-                  >
-                    <div class="node-list-index">${String(index + 1).padStart(2, "0")}</div>
-                    <div class="node-list-copy">
-                      <strong>${node.label}</strong>
-                      <span>${nodeTypeLabel[node.type] ?? node.type} · ${node.file}</span>
-                    </div>
-                    <span class="status-dot status-dot-${node.state}"></span>
-                  </button>
-                `
-              )
-              .join("")}
-          </div>
-        </div>
-      </aside>
-      <section class="detail-canvas-panel">
-        <div class="detail-panel-head">
-          <div>
-            <div class="section-kicker">节点画布</div>
-            <h3>点击节点即可切换右侧 Markdown 编辑区</h3>
-          </div>
-          <div class="canvas-toolbar">
-            <span>缩放 100%</span>
-            <span>只读预览线条</span>
-          </div>
-        </div>
-        <div class="detail-canvas-stage">
-          <svg viewBox="0 0 1440 520" class="detail-canvas-svg" aria-hidden="true">
-            ${renderDetailEdges(workflow)}
-          </svg>
-          ${workflow.graph.nodes
-            .map(
-              (node) => `
-                <button
-                  class="canvas-node ${node.key === selectedNode.key ? "selected" : ""}"
-                  data-select-node="${node.key}"
-                  style="left:${node.x}px; top:${node.y}px;"
-                >
-                  <span class="canvas-node-type">${nodeTypeLabel[node.type] ?? node.type}</span>
-                  <strong>${node.label}</strong>
-                  <span class="canvas-node-file">${node.file.split("/").pop()}</span>
-                </button>
-              `
-            )
-            .join("")}
-        </div>
-      </section>
-      <aside class="detail-editor-panel">
-        <div class="detail-panel-head">
-          <div>
-            <div class="section-kicker">节点编辑</div>
-            <h3>${selectedNode.label}</h3>
-          </div>
-          <span class="status-pill status-${selectedNode.state}">${statusLabel[selectedNode.state]}</span>
-        </div>
-        <div class="editor-meta">
-          <div><span>节点类型</span><strong>${nodeTypeLabel[selectedNode.type] ?? selectedNode.type}</strong></div>
-          <div><span>文件位置</span><strong>${selectedNode.file}</strong></div>
-          <div><span>下一节点</span><strong>${selectedNode.next ? getNodeLabel(workflow, selectedNode.next) : "无"}</strong></div>
-          <div><span>产物</span><strong>${selectedNode.produces?.join(" / ") || "无"}</strong></div>
-        </div>
-        <div class="editor-toolbar">
-          <button class="toolbar-button">预览</button>
-          <button class="toolbar-button">格式校验</button>
-          <button class="toolbar-button toolbar-button-primary">保存节点</button>
-        </div>
-        <label class="markdown-editor-shell">
-          <span>Markdown 源文件</span>
-          <textarea class="markdown-editor" spellcheck="false">${selectedNode.markdown}</textarea>
-        </label>
-      </aside>
-    </main>
+    </div>
   `);
-
-  document.querySelector("#back-overview")?.addEventListener("click", () => {
-    goToOverview();
-  });
-
-  document.querySelectorAll("[data-select-node]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedNodeKey = button.dataset.selectNode;
-      render();
-    });
-  });
 }
 
 function render() {
   const route = parseRoute();
-
   if (route.page === "detail") {
     renderDetailPage(route.workflowId);
     return;
   }
-
   renderOverviewPage();
 }
 
-window.addEventListener("hashchange", render);
+app.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action]");
+  if (!target) {
+    return;
+  }
+
+  const action = target.dataset.action;
+
+  if (action === "select-workflow") {
+    state.selectedWorkflowId = target.dataset.workflowId;
+    render();
+    return;
+  }
+
+  if (action === "open-detail") {
+    goToWorkflowDetail(target.dataset.workflowId);
+    return;
+  }
+
+  if (action === "go-overview") {
+    goToOverview();
+    return;
+  }
+
+  if (action === "toggle-detail-rail") {
+    state.detailRailExpanded = !state.detailRailExpanded;
+    render();
+    return;
+  }
+
+  if (action === "select-node") {
+    state.selectedNodeKey = target.dataset.nodeKey;
+    state.notice = `已切换到节点：${getNodeByKey(getWorkflowById(state.selectedWorkflowId), state.selectedNodeKey).label}`;
+    render();
+    return;
+  }
+
+  if (action === "zoom-in") {
+    state.zoomIndex = Math.min(zoomLevels.length - 1, state.zoomIndex + 1);
+    render();
+    return;
+  }
+
+  if (action === "zoom-out") {
+    state.zoomIndex = Math.max(0, state.zoomIndex - 1);
+    render();
+    return;
+  }
+
+  if (action === "zoom-reset") {
+    state.zoomIndex = 1;
+    render();
+    return;
+  }
+
+  if (action === "toggle-preview") {
+    state.editorMode = state.editorMode === "preview" ? "edit" : "preview";
+    state.notice = state.editorMode === "preview" ? "已切到预览模式。" : "已返回编辑模式。";
+    render();
+    return;
+  }
+
+  if (action === "save-workflow") {
+    state.notice = "工作流草稿已保存。";
+    render();
+    return;
+  }
+
+  if (action === "save-node") {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const node = getNodeByKey(workflow, state.selectedNodeKey);
+    state.notice = `已保存节点：${node.label}`;
+    if (state.editorMode === "preview") {
+      state.editorMode = "edit";
+    }
+    render();
+    return;
+  }
+
+  if (action === "validate-node") {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const node = getNodeByKey(workflow, state.selectedNodeKey);
+    state.notice = `已校验节点：${node.label}，未发现格式问题。`;
+    render();
+    return;
+  }
+
+  if (action === "run-node") {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const node = getNodeByKey(workflow, state.selectedNodeKey);
+    state.notice = `已将节点 ${node.label} 加入重试队列。`;
+    render();
+    return;
+  }
+
+  if (action === "announce") {
+    state.notice = target.dataset.message;
+    render();
+  }
+});
+
+app.addEventListener("input", (event) => {
+  const target = event.target;
+
+  if (target.id === "search-input") {
+    state.query = target.value;
+    render();
+    return;
+  }
+
+  if (target.classList.contains("markdown-editor")) {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const node = getNodeByKey(workflow, state.selectedNodeKey);
+    node.markdown = target.value;
+  }
+});
+
+app.addEventListener("change", (event) => {
+  const target = event.target;
+  if (target.id === "filter-select") {
+    state.filter = target.value;
+    render();
+  }
+});
+
 window.addEventListener("popstate", render);
 
 render();
