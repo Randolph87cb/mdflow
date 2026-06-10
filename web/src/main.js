@@ -176,6 +176,7 @@ function render() {
                         <span class="status-pill status-${selectedWorkflow.status}">${statusLabel[selectedWorkflow.status]}</span>
                       </div>
                       <div class="preview-id">${selectedWorkflow.id}</div>
+                      <div class="preview-path">${selectedWorkflow.path}</div>
                     </div>
                     <div class="preview-tags">
                       ${selectedWorkflow.tags.map((tag) => `<span>${tag}</span>`).join("")}
@@ -190,31 +191,34 @@ function render() {
                   <div class="preview-body">
                     <section class="workflow-meta-card">
                       <div class="meta-callout">${selectedWorkflow.blurb}</div>
-                      <div class="meta-grid">
-                        <div class="meta-item">
-                          <span>Path</span>
-                          <strong>${selectedWorkflow.path}</strong>
-                        </div>
-                        <div class="meta-item">
-                          <span>Entry node</span>
+                      <div class="meta-summary">
+                        <div class="summary-chip">
+                          <span>Entry</span>
                           <strong>${selectedWorkflow.entryNode}</strong>
                         </div>
-                        <div class="meta-item">
-                          <span>Node count</span>
+                        <div class="summary-chip">
+                          <span>Nodes</span>
                           <strong>${selectedWorkflow.nodeCount}</strong>
                         </div>
-                        <div class="meta-item">
+                        <div class="summary-chip">
                           <span>Outputs</span>
                           <strong>${selectedWorkflow.outputs}</strong>
                         </div>
-                        <div class="meta-item">
-                          <span>Latest run</span>
-                          <strong>${selectedWorkflow.latestRunId}</strong>
-                        </div>
-                        <div class="meta-item">
-                          <span>Last edited</span>
+                        <div class="summary-chip">
+                          <span>Edited</span>
                           <strong>${selectedWorkflow.lastEdited}</strong>
                         </div>
+                      </div>
+                      <div class="run-spotlight">
+                        <div class="run-spotlight-copy">
+                          <span>Latest run</span>
+                          <strong>${selectedWorkflow.latestRunId}</strong>
+                          <p>${selectedWorkflow.lastRunRelative === "Never" ? "No execution history yet." : `Most recent execution updated ${selectedWorkflow.lastRunRelative}.`}</p>
+                        </div>
+                        <button class="spotlight-button" ${selectedWorkflow.latestRunId === "No runs yet" ? "disabled" : ""}>Open Run</button>
+                      </div>
+                      <div class="meta-footnote">
+                        This overview keeps editing out of the way: pick the workflow here, then jump into details when you want the full canvas.
                       </div>
                     </section>
                     <section class="graph-card">
@@ -227,6 +231,11 @@ function render() {
                       </div>
                       <div class="graph-stage">
                         ${renderGraph(selectedWorkflow)}
+                      </div>
+                      <div class="graph-footer">
+                        <span>Entry: ${selectedWorkflow.entryNode}</span>
+                        <span>${selectedWorkflow.nodeCount} nodes</span>
+                        <span>${selectedWorkflow.outputs} outputs</span>
                       </div>
                     </section>
                   </div>
