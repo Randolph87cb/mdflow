@@ -132,6 +132,25 @@ textarea:focus-visible {
   font-weight: 800;
 }
 
+.api-source-pill {
+  display: inline-flex;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.api-source-real {
+  background: rgba(66, 163, 109, 0.14);
+  color: #32744c;
+}
+
+.api-source-static {
+  background: rgba(212, 156, 68, 0.16);
+  color: #8a6126;
+}
+
 .toolbar {
   flex: 1;
   justify-content: flex-end;

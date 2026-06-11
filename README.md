@@ -49,6 +49,24 @@ $env:PYTHONPATH = "src"
 python -m mdflow.cli run problem_gen --input workflows/problem_gen/inputs/default.md
 ```
 
+## 本地 UI 接入真实运行
+
+前端默认会尝试连接本地 Studio API；连接成功后页面会显示“真实数据”，并从 `workflows/` 与 `runs/` 读取工作流和运行记录。
+
+```powershell
+$env:PYTHONPATH = "src"
+python -m mdflow.studio_api
+```
+
+另开一个终端启动前端：
+
+```powershell
+cd web
+npm run dev -- --host 127.0.0.1 --port 4176
+```
+
+在真实数据模式下，页面里的“运行”和“重跑”按钮会调用真实 `mdflow run/rerun`，会使用 `.env` 中配置的 provider，并可能消耗 API 额度。
+
 当前已确定的规范文档：
 
 - 目录结构：[docs/project-structure.md](docs/project-structure.md)

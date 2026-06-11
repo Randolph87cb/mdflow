@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 mdflow = "mdflow.cli:main"
+mdflow-studio-api = "mdflow.studio_api:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

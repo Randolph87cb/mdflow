@@ -1,7 +1,10 @@
 import "./styles.css";
-import { workflowRuns, workflows } from "./data.js";
+import { workflowRuns as staticWorkflowRuns, workflows as staticWorkflows } from "./data.js";
 
 const app = document.querySelector("#app");
+const API_BASE = localStorage.getItem("mdflowApiBase") ?? "http://127.0.0.1:8765";
+let workflows = [...staticWorkflows];
+let workflowRuns = { ...staticWorkflowRuns };
 const zoomLevels = [0.9, 1, 1.12];
 const canvasMetrics = {
   width: 720,
@@ -26,6 +29,9 @@ const state = {
   runRailExpanded: false,
   editorMode: "edit",
   zoomIndex: 1,
+  apiSource: "static",
+  apiError: "",
+  isRefreshing: false,
   notice: "已对齐设计稿结构：中间画布为主，右侧固定编辑。"
 };
 
@@ -33,13 +39,15 @@ const statusLabel = {
   failed: "失败",
   success: "已完成",
   running: "运行中",
+  waiting: "等待中",
   idle: "未运行"
 };
 
 const nodeTypeLabel = {
   markdown: "Markdown",
   python: "Python",
-  shell: "Shell"
+  shell: "Shell",
+  router: "Router"
 };
 
 const runStatusLabel = {
@@ -51,7 +59,7 @@ const runStatusLabel = {
 };
 
 function escapeHtml(value) {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
 
 function getWorkflowById(workflowId) {
@@ -73,6 +81,118 @@ function getRunById(workflowId, runId) {
 
 function getRunNode(run, nodeKey) {
   return run?.nodes[nodeKey] ?? null;
+}
+
+async function refreshRealData({ silent = false } = {}) {
+  state.isRefreshing = true;
+  if (!silent) {
+    state.notice = "正在连接本地真实 mdflow API...";
+    render();
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/api/workflows`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    workflows = payload.workflows?.length ? payload.workflows : workflows;
+    workflowRuns = payload.workflowRuns ?? workflowRuns;
+    state.apiSource = payload.source ?? "real";
+    state.apiError = "";
+    state.isRefreshing = false;
+    if (!getWorkflowById(state.selectedWorkflowId)) {
+      state.selectedWorkflowId = workflows[0]?.id ?? "";
+    }
+    if (!silent) {
+      state.notice = "已连接真实 mdflow API，当前数据来自 workflows/ 与 runs/。";
+    }
+    render();
+    scheduleRunRefresh();
+  } catch (error) {
+    state.apiSource = "static";
+    state.apiError = error instanceof Error ? error.message : String(error);
+    state.isRefreshing = false;
+    if (!silent) {
+      state.notice = `未连接本地 API，当前仍为静态原型数据：${state.apiError}`;
+      render();
+    }
+  }
+}
+
+async function postApi(path, body = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+  }
+  return payload;
+}
+
+async function startWorkflowRun(workflowId) {
+  if (state.apiSource !== "real") {
+    state.notice = "请先启动本地真实 API：python -m mdflow.studio_api";
+    render();
+    return;
+  }
+  const workflow = getWorkflowById(workflowId);
+  state.notice = `正在提交真实运行：${workflow.name}`;
+  render();
+  try {
+    const payload = await postApi(`/api/workflows/${encodeURIComponent(workflowId)}/runs`);
+    state.selectedWorkflowId = workflowId;
+    state.selectedRunId = payload.runId;
+    state.selectedNodeKey = workflow.entryNode;
+    state.notice = `已提交真实运行：${payload.runId}`;
+    pushRoute("run", workflowId, payload.runId);
+    window.setTimeout(() => refreshRealData({ silent: true }), 250);
+    render();
+  } catch (error) {
+    state.notice = `真实运行提交失败：${error instanceof Error ? error.message : String(error)}`;
+    render();
+  }
+}
+
+async function startRunRerun(fromNode = "") {
+  if (state.apiSource !== "real") {
+    state.notice = "请先启动本地真实 API：python -m mdflow.studio_api";
+    render();
+    return;
+  }
+  const workflowId = state.selectedWorkflowId;
+  const runId = state.selectedRunId;
+  state.notice = "正在提交真实重跑...";
+  render();
+  try {
+    const payload = await postApi(
+      `/api/runs/${encodeURIComponent(workflowId)}/${encodeURIComponent(runId)}/rerun`,
+      fromNode ? { fromNode } : {}
+    );
+    state.selectedRunId = payload.runId;
+    state.selectedNodeKey = payload.fromNode ?? state.selectedNodeKey;
+    state.notice = `已提交真实重跑：${payload.runId}`;
+    pushRoute("run", workflowId, payload.runId);
+    window.setTimeout(() => refreshRealData({ silent: true }), 250);
+    render();
+  } catch (error) {
+    state.notice = `真实重跑提交失败：${error instanceof Error ? error.message : String(error)}`;
+    render();
+  }
+}
+
+function scheduleRunRefresh() {
+  const route = parseRoute();
+  if (route.page !== "run" || state.apiSource !== "real") {
+    return;
+  }
+  const run = getRunById(state.selectedWorkflowId, state.selectedRunId);
+  if (run?.status === "running") {
+    window.setTimeout(() => refreshRealData({ silent: true }), 2000);
+  }
 }
 
 function getRowAlignedWorkflow(workflow) {
@@ -557,6 +677,9 @@ function renderOverviewPage() {
         <div>
           <div class="brand-kicker">工作流总览</div>
           <div class="brand-title">mdflow</div>
+          <div class="api-source-pill ${state.apiSource === "real" ? "api-source-real" : "api-source-static"}">
+            ${state.apiSource === "real" ? "真实数据" : "静态原型"}
+          </div>
         </div>
       </div>
       <div class="toolbar">
@@ -633,7 +756,7 @@ function renderOverviewPage() {
                 <div class="action-bar">
                   <button class="action-button action-button-primary" data-action="open-detail" data-workflow-id="${selectedWorkflow.id}">打开详情</button>
                   <button class="action-button" data-action="open-run" data-workflow-id="${selectedWorkflow.id}" data-run-id="${selectedWorkflow.latestRunId}">打开最新运行</button>
-                  <button class="action-button" data-action="announce" data-message="运行入口已预留，当前是静态原型。">运行</button>
+                  <button class="action-button" data-action="run-workflow" data-workflow-id="${selectedWorkflow.id}">运行</button>
                   <button class="action-button" data-action="announce" data-message="复制入口已预留，当前是静态原型。">复制</button>
                 </div>
                 <div class="preview-body">
@@ -756,7 +879,7 @@ function renderDetailPage(workflowId) {
             <div class="detail-topbar-meta">最后编辑：${workflow.lastEdited}　由 ${workflow.owner}</div>
           </div>
           <div class="detail-topbar-actions">
-            <button class="toolbar-button" data-action="announce" data-message="运行工作流入口已预留，当前是静态原型。">运行工作流</button>
+            <button class="toolbar-button" data-action="run-workflow" data-workflow-id="${workflow.id}">运行工作流</button>
             <button class="toolbar-button" data-action="save-workflow">保存</button>
             <button class="toolbar-button toolbar-button-primary" data-action="announce" data-message="发布动作已预留，待接真实能力。">发布</button>
           </div>
@@ -1073,6 +1196,11 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "run-workflow") {
+    startWorkflowRun(target.dataset.workflowId || state.selectedWorkflowId);
+    return;
+  }
+
   if (action === "go-overview") {
     goToOverview();
     return;
@@ -1168,6 +1296,10 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "run-node") {
+    if (state.apiSource === "real") {
+      startRunRerun(state.selectedNodeKey);
+      return;
+    }
     const workflow = getWorkflowById(state.selectedWorkflowId);
     const node = getNodeByKey(workflow, state.selectedNodeKey);
     state.notice = `已将节点 ${node.label} 加入重试队列。`;
@@ -1176,6 +1308,10 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "retry-node") {
+    if (state.apiSource === "real") {
+      startRunRerun(state.selectedNodeKey);
+      return;
+    }
     const workflow = getWorkflowById(state.selectedWorkflowId);
     const node = getNodeByKey(workflow, state.selectedNodeKey);
     state.notice = `已提交节点重试：${node.label}`;
@@ -1184,6 +1320,10 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "retry-downstream") {
+    if (state.apiSource === "real") {
+      startRunRerun(state.selectedNodeKey);
+      return;
+    }
     const workflow = getWorkflowById(state.selectedWorkflowId);
     const node = getNodeByKey(workflow, state.selectedNodeKey);
     state.notice = `已从节点 ${node.label} 继续向下游重跑。`;
@@ -1192,12 +1332,20 @@ app.addEventListener("click", (event) => {
   }
 
   if (action === "retry-run") {
+    if (state.apiSource === "real") {
+      startWorkflowRun(state.selectedWorkflowId);
+      return;
+    }
     state.notice = "已提交整次工作流重跑。";
     render();
     return;
   }
 
   if (action === "retry-failed") {
+    if (state.apiSource === "real") {
+      startRunRerun();
+      return;
+    }
     state.notice = "已提交失败节点重跑。";
     render();
     return;
@@ -1240,3 +1388,4 @@ app.addEventListener("change", (event) => {
 window.addEventListener("popstate", render);
 
 render();
+refreshRealData({ silent: true });
