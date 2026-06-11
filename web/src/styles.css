@@ -948,7 +948,10 @@ textarea:focus-visible {
 
 .canvas-node {
   position: absolute;
+  display: flex;
+  flex-direction: column;
   width: 170px;
+  height: 208px;
   padding: 14px 15px 16px;
   border: 1px solid rgba(80, 109, 132, 0.12);
   border-radius: 18px;
@@ -1039,15 +1042,25 @@ textarea:focus-visible {
   line-height: 1.45;
 }
 
+.canvas-node-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .canvas-node-subline {
   margin-top: 6px;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .canvas-node-output {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: auto;
 }
 
 .canvas-node-output span {

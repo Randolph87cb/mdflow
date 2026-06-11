@@ -7,7 +7,7 @@ const canvasMetrics = {
   width: 720,
   height: 690,
   nodeWidth: 170,
-  nodeHeight: 184,
+  nodeHeight: 208,
   toolbarWidth: 288,
   toolbarHeight: 46,
   canvasPadding: 16,
