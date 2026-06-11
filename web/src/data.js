@@ -710,5 +710,56 @@ export const workflowRuns = {
         release_ready: { status: "waiting", duration: "等待中", retries: 0, progress: 0, startedAt: "未开始", finishedAt: "未完成", summary: "上游失败，未开始。", output: "release/", artifacts: [], logs: ["等待上游节点：结果汇总"] }
       }
     }
+  ],
+  daily_report: [
+    {
+      id: "run-2026-06-10-027",
+      status: "success",
+      trigger: "定时运行",
+      actor: "系统",
+      startedAt: "今天 10:02:14",
+      duration: "3 分 42 秒",
+      summary: "日报汇总流程已完成，产物已发布到晨会摘要。",
+      selectedNodeKey: "publish_report",
+      metrics: {
+        total: 4,
+        success: 4,
+        running: 0,
+        failed: 0,
+        waiting: 0
+      },
+      nodes: {
+        collect_sources: { status: "success", duration: "46 秒", retries: 0, progress: 100, startedAt: "10:02:14", finishedAt: "10:03:00", summary: "来源采集完成。", output: "source.json", artifacts: ["source.json"], logs: ["10:02:14 读取 issue、妙记和待办", "10:03:00 写入 source.json"] },
+        draft_report: { status: "success", duration: "1 分 12 秒", retries: 0, progress: 100, startedAt: "10:03:02", finishedAt: "10:04:14", summary: "日报草稿已生成。", output: "draft.md", artifacts: ["draft.md"], logs: ["10:03:02 生成日报结构", "10:04:14 写入 draft.md"] },
+        review_report: { status: "success", duration: "58 秒", retries: 0, progress: 100, startedAt: "10:04:16", finishedAt: "10:05:14", summary: "格式和风险项校验完成。", output: "review.md", artifacts: ["review.md"], logs: ["10:04:16 统一口吻", "10:05:14 完成审核"] },
+        publish_report: { status: "success", duration: "42 秒", retries: 0, progress: 100, startedAt: "10:05:16", finishedAt: "10:05:58", summary: "日报已导出发布。", output: "daily-report.md", artifacts: ["daily-report.md", "standup-summary.md"], logs: ["10:05:16 导出 Markdown", "10:05:58 发布完成"] }
+      }
+    }
+  ],
+  benchmark_suite: [
+    {
+      id: "run-2026-06-10-029",
+      status: "failed",
+      trigger: "手动运行",
+      actor: "王同学",
+      startedAt: "今天 13:14:05",
+      duration: "6 分 37 秒",
+      summary: "评测样例 A 失败，汇总与导出节点等待上游恢复。",
+      selectedNodeKey: "case_a",
+      metrics: {
+        total: 5,
+        success: 2,
+        running: 0,
+        failed: 1,
+        waiting: 2
+      },
+      nodes: {
+        seed_matrix: { status: "success", duration: "39 秒", retries: 0, progress: 100, startedAt: "13:14:05", finishedAt: "13:14:44", summary: "种子矩阵已生成。", output: "seeds.json", artifacts: ["seeds.json"], logs: ["13:14:05 准备评测矩阵", "13:14:44 写入 seeds.json"] },
+        case_a: { status: "failed", duration: "3 分 28 秒", retries: 2, progress: 64, startedAt: "13:14:46", finishedAt: "13:18:14", summary: "样例 A 在第 64 组评测失败。", output: "case-a.log", artifacts: ["case-a.log", "case-a.failed.json"], logs: ["13:14:46 启动样例 A", "13:17:58 第 64 组超时", "13:18:14 标记失败"], error: "TimeoutError: case A exceeded 120s at sample 64" },
+        case_b: { status: "success", duration: "2 分 11 秒", retries: 0, progress: 100, startedAt: "13:14:47", finishedAt: "13:16:58", summary: "样例 B 评测完成。", output: "case-b.log", artifacts: ["case-b.log"], logs: ["13:14:47 启动样例 B", "13:16:58 全部通过"] },
+        merge_scores: { status: "waiting", duration: "等待中", retries: 0, progress: 0, startedAt: "未开始", finishedAt: "未完成", summary: "等待样例 A 重试后汇总评分。", output: "scores.json", artifacts: [], logs: ["等待上游节点：评测样例 A"] },
+        export_suite: { status: "waiting", duration: "等待中", retries: 0, progress: 0, startedAt: "未开始", finishedAt: "未完成", summary: "等待评分汇总完成。", output: "report.md", artifacts: [], logs: ["等待上游节点：汇总评分"] }
+      }
+    }
   ]
 };

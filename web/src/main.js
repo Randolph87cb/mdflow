@@ -881,11 +881,14 @@ function renderRunPage(workflowId, runId = "") {
   const selectedNode = getNodeByKey(workflow, state.selectedNodeKey || run.selectedNodeKey);
   const selectedRunNode = getRunNode(run, selectedNode.key);
   const zoom = zoomLevels[state.zoomIndex];
+  const previousRunId = state.selectedRunId;
 
   state.selectedWorkflowId = workflow.id;
   state.selectedRunId = run.id;
   state.selectedNodeKey = selectedRunNode ? selectedNode.key : run.selectedNodeKey;
-  state.notice = `正在查看运行记录 ${run.id}，点击节点可切换右侧日志。`;
+  if (previousRunId !== run.id) {
+    state.notice = `正在查看运行记录 ${run.id}，点击节点可切换右侧日志。`;
+  }
   document.title = `mdflow · ${run.id}`;
 
   renderShell(`
@@ -1210,8 +1213,12 @@ app.addEventListener("input", (event) => {
   const target = event.target;
 
   if (target.id === "search-input") {
+    const cursorPosition = target.selectionStart ?? target.value.length;
     state.query = target.value;
     render();
+    const searchInput = document.querySelector("#search-input");
+    searchInput?.focus();
+    searchInput?.setSelectionRange(cursorPosition, cursorPosition);
     return;
   }
 
