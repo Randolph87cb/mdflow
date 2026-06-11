@@ -12,7 +12,8 @@ const canvasMetrics = {
   toolbarHeight: 46,
   canvasPadding: 16,
   edgeGap: 0,
-  edgeRadius: 14
+  edgeRadius: 14,
+  rowSnapThreshold: 24
 };
 
 const state = {
@@ -49,6 +50,39 @@ function getWorkflowById(workflowId) {
 
 function getNodeByKey(workflow, nodeKey) {
   return workflow.graph.nodes.find((node) => node.key === nodeKey) ?? workflow.graph.nodes[0];
+}
+
+function getRowAlignedWorkflow(workflow) {
+  const rows = [];
+  const sortedNodes = [...workflow.graph.nodes].sort((left, right) => left.y - right.y);
+
+  sortedNodes.forEach((node) => {
+    const row = rows.find((candidate) => Math.abs(candidate.averageY - node.y) <= canvasMetrics.rowSnapThreshold);
+    if (row) {
+      row.nodes.push(node);
+      row.averageY = row.nodes.reduce((sum, item) => sum + item.y, 0) / row.nodes.length;
+      return;
+    }
+
+    rows.push({ averageY: node.y, nodes: [node] });
+  });
+
+  const snappedYByKey = new Map();
+  rows.forEach((row) => {
+    const snappedY = Math.round(row.averageY);
+    row.nodes.forEach((node) => snappedYByKey.set(node.key, snappedY));
+  });
+
+  return {
+    ...workflow,
+    graph: {
+      ...workflow.graph,
+      nodes: workflow.graph.nodes.map((node) => ({
+        ...node,
+        y: snappedYByKey.get(node.key) ?? node.y
+      }))
+    }
+  };
 }
 
 function getNodeRelations(workflow, nodeKey) {
@@ -504,7 +538,7 @@ function renderOverviewPage() {
 }
 
 function renderDetailPage(workflowId) {
-  const workflow = getWorkflowById(workflowId);
+  const workflow = getRowAlignedWorkflow(getWorkflowById(workflowId));
   const selectedNode = getNodeByKey(workflow, state.selectedNodeKey);
   const relations = getNodeRelations(workflow, selectedNode.key);
   const zoom = zoomLevels[state.zoomIndex];
