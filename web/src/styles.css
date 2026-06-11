@@ -901,9 +901,20 @@ textarea:focus-visible {
 
 .detail-edge {
   fill: none;
-  stroke: rgba(66, 103, 132, 0.46);
-  stroke-width: 3;
+  stroke: rgba(50, 94, 126, 0.5);
+  stroke-width: 2.5;
   stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.detail-edge-arrow {
+  fill: rgba(50, 94, 126, 0.58);
+}
+
+.detail-edge-port {
+  fill: #f7fbff;
+  stroke: rgba(28, 105, 132, 0.68);
+  stroke-width: 2;
 }
 
 .selected-node-toolbar {

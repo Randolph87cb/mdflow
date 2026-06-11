@@ -10,7 +10,9 @@ const canvasMetrics = {
   nodeHeight: 184,
   toolbarWidth: 288,
   toolbarHeight: 46,
-  canvasPadding: 16
+  canvasPadding: 16,
+  edgeGap: 12,
+  edgeRadius: 14
 };
 
 const state = {
@@ -141,38 +143,107 @@ function renderPreviewGraph(workflow) {
 
 function renderDetailEdges(workflow) {
   const nodeMap = new Map(workflow.graph.nodes.map((node) => [node.key, node]));
+
+  function getAnchor(node, side) {
+    const centerX = node.x + canvasMetrics.nodeWidth / 2;
+    const centerY = node.y + canvasMetrics.nodeHeight / 2;
+    const gap = canvasMetrics.edgeGap;
+
+    if (side === "top") {
+      return { x: centerX, y: node.y - gap };
+    }
+    if (side === "bottom") {
+      return { x: centerX, y: node.y + canvasMetrics.nodeHeight + gap };
+    }
+    if (side === "left") {
+      return { x: node.x - gap, y: centerY };
+    }
+    return { x: node.x + canvasMetrics.nodeWidth + gap, y: centerY };
+  }
+
+  function getAnchorSides(from, to) {
+    const fromCenterY = from.y + canvasMetrics.nodeHeight / 2;
+    const toCenterY = to.y + canvasMetrics.nodeHeight / 2;
+    const verticalDelta = toCenterY - fromCenterY;
+    const verticalThreshold = canvasMetrics.nodeHeight * 0.62;
+
+    if (verticalDelta > verticalThreshold) {
+      return { source: "bottom", target: "top" };
+    }
+    if (verticalDelta < -verticalThreshold) {
+      return { source: "top", target: "bottom" };
+    }
+    if (to.x < from.x) {
+      return { source: "left", target: "right" };
+    }
+    return { source: "right", target: "left" };
+  }
+
+  function buildStepPoints(start, end, sourceSide) {
+    if (sourceSide === "top" || sourceSide === "bottom") {
+      const midY = start.y + (end.y - start.y) / 2;
+      return [
+        start,
+        { x: start.x, y: midY },
+        { x: end.x, y: midY },
+        end
+      ];
+    }
+
+    const midX = start.x + (end.x - start.x) / 2;
+    return [
+      start,
+      { x: midX, y: start.y },
+      { x: midX, y: end.y },
+      end
+    ];
+  }
+
+  function roundedPath(points) {
+    if (points.length < 2) {
+      return "";
+    }
+
+    const radius = canvasMetrics.edgeRadius;
+    const path = [`M ${points[0].x} ${points[0].y}`];
+
+    for (let index = 1; index < points.length - 1; index += 1) {
+      const previous = points[index - 1];
+      const current = points[index];
+      const next = points[index + 1];
+      const previousDistance = Math.abs(current.x - previous.x) + Math.abs(current.y - previous.y);
+      const nextDistance = Math.abs(next.x - current.x) + Math.abs(next.y - current.y);
+      const cornerRadius = Math.min(radius, previousDistance / 2, nextDistance / 2);
+      const before = {
+        x: current.x + Math.sign(previous.x - current.x) * cornerRadius,
+        y: current.y + Math.sign(previous.y - current.y) * cornerRadius
+      };
+      const after = {
+        x: current.x + Math.sign(next.x - current.x) * cornerRadius,
+        y: current.y + Math.sign(next.y - current.y) * cornerRadius
+      };
+
+      path.push(`L ${before.x} ${before.y}`);
+      path.push(`Q ${current.x} ${current.y} ${after.x} ${after.y}`);
+    }
+
+    const last = points[points.length - 1];
+    path.push(`L ${last.x} ${last.y}`);
+    return path.join(" ");
+  }
+
   return workflow.graph.edges
-    .map(([fromKey, toKey]) => {
+    .map(([fromKey, toKey], index) => {
       const from = nodeMap.get(fromKey);
       const to = nodeMap.get(toKey);
-      const startX = from.x + canvasMetrics.nodeWidth;
-      const startY = from.y + canvasMetrics.nodeHeight / 2;
-      const endX = to.x;
-      const endY = to.y + canvasMetrics.nodeHeight / 2;
-      const offset = Math.max(28, Math.min(42, Math.abs(endX - startX) * 0.28));
-      const midX = startX + Math.max(offset, (endX - startX) / 2);
-      const radius = 16;
-
-      if (Math.abs(endY - startY) < 8) {
-        return `<path d="M ${startX} ${startY} L ${endX} ${endY}" class="detail-edge" />`;
-      }
-
-      const verticalDirection = endY > startY ? 1 : -1;
-      const firstTurnY = startY;
-      const secondTurnY = endY - radius * verticalDirection;
-      const entryX = endX - radius;
-
+      const sides = getAnchorSides(from, to);
+      const start = getAnchor(from, sides.source);
+      const end = getAnchor(to, sides.target);
+      const points = buildStepPoints(start, end, sides.source);
+      const edgeId = `detail-edge-${index}`;
       return `
-        <path
-          d="M ${startX} ${startY}
-             L ${midX - radius} ${firstTurnY}
-             Q ${midX} ${firstTurnY} ${midX} ${firstTurnY + radius * verticalDirection}
-             L ${midX} ${secondTurnY}
-             Q ${midX} ${endY} ${midX + radius} ${endY}
-             L ${entryX} ${endY}
-             Q ${endX} ${endY} ${endX} ${endY}"
-          class="detail-edge"
-        />
+        <path id="${edgeId}" d="${roundedPath(points)}" class="detail-edge" marker-end="url(#detail-edge-arrow)" />
+        <circle cx="${start.x}" cy="${start.y}" r="3.5" class="detail-edge-port" />
       `;
     })
     .join("");
@@ -506,7 +577,14 @@ function renderDetailPage(workflowId) {
             </div>
             <div class="canvas-board-shell">
               <div class="canvas-board" style="transform: scale(${zoom});">
-                <svg viewBox="0 0 720 690" class="detail-canvas-svg" aria-hidden="true">${renderDetailEdges(workflow)}</svg>
+                <svg viewBox="0 0 720 690" class="detail-canvas-svg" aria-hidden="true">
+                  <defs>
+                    <marker id="detail-edge-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                      <path d="M 1 1 L 9 5 L 1 9 z" class="detail-edge-arrow" />
+                    </marker>
+                  </defs>
+                  ${renderDetailEdges(workflow)}
+                </svg>
                 <div class="selected-node-toolbar" style="left:${selectedToolbarLeft}px; top:${selectedToolbarTop}px; --arrow-offset:${toolbarArrowOffset}px;">
                   <button data-action="announce" data-message="当前节点已经处于画布中心附近。">定位</button>
                   <button data-action="toggle-preview">预览</button>
