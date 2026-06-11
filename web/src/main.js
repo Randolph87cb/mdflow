@@ -196,31 +196,127 @@ function filterWorkflows() {
 }
 
 function renderPreviewGraph(workflow) {
-  const nodeMap = new Map(workflow.graph.nodes.map((node) => [node.key, node]));
-  const edgeMarkup = workflow.graph.edges
-    .map(([fromKey, toKey]) => {
+  const previewMetrics = {
+    width: 410,
+    height: 316,
+    nodeWidth: 104,
+    nodeHeight: 88,
+    paddingX: 12,
+    paddingY: 18
+  };
+  const alignedWorkflow = getRowAlignedWorkflow(workflow);
+  const sourceNodes = alignedWorkflow.graph.nodes;
+  const minX = Math.min(...sourceNodes.map((node) => node.x));
+  const maxX = Math.max(...sourceNodes.map((node) => node.x));
+  const minY = Math.min(...sourceNodes.map((node) => node.y));
+  const maxY = Math.max(...sourceNodes.map((node) => node.y));
+  const availableX = previewMetrics.width - previewMetrics.paddingX * 2 - previewMetrics.nodeWidth;
+  const availableY = previewMetrics.height - previewMetrics.paddingY * 2 - previewMetrics.nodeHeight;
+
+  function scalePosition(value, min, max, available, padding) {
+    if (max === min) {
+      return padding + available / 2;
+    }
+    return padding + ((value - min) / (max - min)) * available;
+  }
+
+  const previewNodes = sourceNodes.map((node) => ({
+    ...node,
+    x: Math.round(scalePosition(node.x, minX, maxX, availableX, previewMetrics.paddingX)),
+    y: Math.round(scalePosition(node.y, minY, maxY, availableY, previewMetrics.paddingY))
+  }));
+  const previewWorkflow = {
+    ...alignedWorkflow,
+    graph: {
+      ...alignedWorkflow.graph,
+      nodes: previewNodes
+    }
+  };
+  const nodeMap = new Map(previewNodes.map((node) => [node.key, node]));
+
+  function getPreviewAnchor(node, side) {
+    const centerX = node.x + previewMetrics.nodeWidth / 2;
+    const centerY = node.y + previewMetrics.nodeHeight / 2;
+
+    if (side === "top") {
+      return { x: centerX, y: node.y };
+    }
+    if (side === "bottom") {
+      return { x: centerX, y: node.y + previewMetrics.nodeHeight };
+    }
+    if (side === "left") {
+      return { x: node.x, y: centerY };
+    }
+    return { x: node.x + previewMetrics.nodeWidth, y: centerY };
+  }
+
+  function getPreviewAnchorSides(from, to) {
+    const verticalDelta =
+      to.y + previewMetrics.nodeHeight / 2 - (from.y + previewMetrics.nodeHeight / 2);
+    const verticalThreshold = previewMetrics.nodeHeight * 0.62;
+
+    if (verticalDelta > verticalThreshold) {
+      return { source: "bottom", target: "top" };
+    }
+    if (verticalDelta < -verticalThreshold) {
+      return { source: "top", target: "bottom" };
+    }
+    if (to.x < from.x) {
+      return { source: "left", target: "right" };
+    }
+    return { source: "right", target: "left" };
+  }
+
+  function getPreviewNodePorts(nodeKey) {
+    const ports = new Set();
+    previewWorkflow.graph.edges.forEach(([fromKey, toKey]) => {
       const from = nodeMap.get(fromKey);
       const to = nodeMap.get(toKey);
-      return `<line x1="${from.x + 48}" y1="${from.y + 28}" x2="${to.x + 48}" y2="${to.y + 28}" class="graph-edge" />`;
+      const sides = getPreviewAnchorSides(from, to);
+
+      if (fromKey === nodeKey) {
+        ports.add(sides.source);
+      }
+      if (toKey === nodeKey) {
+        ports.add(sides.target);
+      }
+    });
+    return [...ports];
+  }
+
+  const edgeMarkup = previewWorkflow.graph.edges
+    .map(([fromKey, toKey], index) => {
+      const from = nodeMap.get(fromKey);
+      const to = nodeMap.get(toKey);
+      const sides = getPreviewAnchorSides(from, to);
+      const start = getPreviewAnchor(from, sides.source);
+      const end = getPreviewAnchor(to, sides.target);
+      const points = buildStepPoints(start, end, sides.source);
+      return `<path id="overview-edge-${index}" d="${roundedPath(points)}" class="overview-edge overview-edge-${getNodeByKey(workflow, toKey).state}" />`;
     })
     .join("");
 
-  const nodeMarkup = workflow.graph.nodes
+  const nodeMarkup = previewNodes
     .map(
       (node) => `
-        <g>
-          <circle cx="${node.x + 48}" cy="${node.y + 28}" r="26" class="graph-node graph-node-${node.state}" />
-          <text x="${node.x + 48}" y="${node.y + 32}" text-anchor="middle" class="graph-label">${escapeHtml(node.shortLabel)}</text>
-        </g>
+        <span class="overview-node overview-node-${node.state}" style="left:${node.x}px; top:${node.y}px;">
+          ${renderCanvasNodeHandles(getPreviewNodePorts(node.key))}
+          <span class="overview-node-head">
+            <span class="overview-node-badge">${escapeHtml(node.badge)}</span>
+            <span>${escapeHtml(nodeTypeLabel[node.type])}</span>
+          </span>
+          <strong>${escapeHtml(node.label)}</strong>
+          <em>${escapeHtml(node.outputHint)}</em>
+        </span>
       `
     )
     .join("");
 
   return `
-    <svg viewBox="0 0 1100 340" class="graph-svg" aria-label="${escapeHtml(workflow.name)} 工作流预览图">
-      ${edgeMarkup}
+    <span class="overview-canvas-mini" aria-label="${escapeHtml(workflow.name)} 工作流预览图">
+      <svg viewBox="0 0 ${previewMetrics.width} ${previewMetrics.height}" class="overview-canvas-svg" aria-hidden="true">${edgeMarkup}</svg>
       ${nodeMarkup}
-    </svg>
+    </span>
   `;
 }
 
