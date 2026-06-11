@@ -907,16 +907,6 @@ textarea:focus-visible {
   stroke-linejoin: round;
 }
 
-.detail-edge-arrow {
-  fill: rgba(50, 94, 126, 0.58);
-}
-
-.detail-edge-port {
-  fill: #f7fbff;
-  stroke: rgba(28, 105, 132, 0.68);
-  stroke-width: 2;
-}
-
 .selected-node-toolbar {
   position: absolute;
   z-index: 2;
@@ -967,6 +957,42 @@ textarea:focus-visible {
   text-align: left;
   cursor: pointer;
   box-shadow: 0 16px 32px rgba(20, 47, 68, 0.08);
+}
+
+.canvas-node-handle {
+  position: absolute;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(37, 115, 144, 0.64);
+  border-radius: 999px;
+  background: #f7fbff;
+  box-shadow: 0 0 0 4px rgba(123, 186, 199, 0.16);
+  pointer-events: none;
+}
+
+.canvas-node-handle-top {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.canvas-node-handle-right {
+  top: 50%;
+  right: 0;
+  transform: translate(50%, -50%);
+}
+
+.canvas-node-handle-bottom {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 50%);
+}
+
+.canvas-node-handle-left {
+  top: 50%;
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 
 .canvas-node.selected {
