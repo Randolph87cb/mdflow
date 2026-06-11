@@ -1,5 +1,5 @@
 import "./styles.css";
-import { workflows } from "./data.js";
+import { workflowRuns, workflows } from "./data.js";
 
 const app = document.querySelector("#app");
 const zoomLevels = [0.9, 1, 1.12];
@@ -21,7 +21,9 @@ const state = {
   filter: "all",
   selectedWorkflowId: workflows[0].id,
   selectedNodeKey: workflows[0].entryNode,
+  selectedRunId: workflows[0].latestRunId,
   detailRailExpanded: false,
+  runRailExpanded: false,
   editorMode: "edit",
   zoomIndex: 1,
   notice: "已对齐设计稿结构：中间画布为主，右侧固定编辑。"
@@ -40,6 +42,14 @@ const nodeTypeLabel = {
   shell: "Shell"
 };
 
+const runStatusLabel = {
+  failed: "失败",
+  success: "已完成",
+  running: "运行中",
+  waiting: "等待中",
+  idle: "未开始"
+};
+
 function escapeHtml(value) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }
@@ -50,6 +60,19 @@ function getWorkflowById(workflowId) {
 
 function getNodeByKey(workflow, nodeKey) {
   return workflow.graph.nodes.find((node) => node.key === nodeKey) ?? workflow.graph.nodes[0];
+}
+
+function getRunsByWorkflowId(workflowId) {
+  return workflowRuns[workflowId] ?? [];
+}
+
+function getRunById(workflowId, runId) {
+  const runs = getRunsByWorkflowId(workflowId);
+  return runs.find((run) => run.id === runId) ?? runs[0] ?? null;
+}
+
+function getRunNode(run, nodeKey) {
+  return run?.nodes[nodeKey] ?? null;
 }
 
 function getRowAlignedWorkflow(workflow) {
@@ -99,17 +122,30 @@ function parseRoute() {
   const url = new URL(window.location.href);
   const view = url.searchParams.get("view");
   const workflowId = url.searchParams.get("workflow");
+  const runId = url.searchParams.get("run");
+  if (view === "run" && workflowId) {
+    return { page: "run", workflowId, runId };
+  }
   if (view === "detail" && workflowId) {
     return { page: "detail", workflowId };
   }
   return { page: "overview" };
 }
 
-function pushRoute(page, workflowId = "") {
+function pushRoute(page, workflowId = "", runId = "") {
   const url = new URL(window.location.href);
   if (page === "detail") {
     url.searchParams.set("view", "detail");
     url.searchParams.set("workflow", workflowId);
+    url.searchParams.delete("run");
+  } else if (page === "run") {
+    url.searchParams.set("view", "run");
+    url.searchParams.set("workflow", workflowId);
+    if (runId) {
+      url.searchParams.set("run", runId);
+    } else {
+      url.searchParams.delete("run");
+    }
   } else {
     url.search = "";
   }
@@ -131,6 +167,19 @@ function goToWorkflowDetail(workflowId) {
   state.zoomIndex = 1;
   state.notice = `已打开 ${workflow.name} 的节点画布。`;
   pushRoute("detail", workflow.id);
+  render();
+}
+
+function goToWorkflowRun(workflowId, runId = "") {
+  const workflow = getWorkflowById(workflowId);
+  const run = getRunById(workflow.id, runId || workflow.latestRunId);
+  state.selectedWorkflowId = workflow.id;
+  state.selectedRunId = run?.id ?? workflow.latestRunId;
+  state.selectedNodeKey = run?.selectedNodeKey ?? workflow.entryNode;
+  state.runRailExpanded = false;
+  state.zoomIndex = 1;
+  state.notice = run ? `已打开运行记录：${run.id}` : "这个工作流还没有可用运行记录。";
+  pushRoute("run", workflow.id, run?.id ?? "");
   render();
 }
 
@@ -487,7 +536,7 @@ function renderOverviewPage() {
                 </div>
                 <div class="action-bar">
                   <button class="action-button action-button-primary" data-action="open-detail" data-workflow-id="${selectedWorkflow.id}">打开详情</button>
-                  <button class="action-button" data-action="announce" data-message="最新运行页还未开始设计。">打开最新运行</button>
+                  <button class="action-button" data-action="open-run" data-workflow-id="${selectedWorkflow.id}" data-run-id="${selectedWorkflow.latestRunId}">打开最新运行</button>
                   <button class="action-button" data-action="announce" data-message="运行入口已预留，当前是静态原型。">运行</button>
                   <button class="action-button" data-action="announce" data-message="复制入口已预留，当前是静态原型。">复制</button>
                 </div>
@@ -506,7 +555,7 @@ function renderOverviewPage() {
                         <strong>${selectedWorkflow.latestRunId}</strong>
                         <p>${selectedWorkflow.lastRunRelative === "未运行" ? "这个工作流还没有执行记录。" : `最近一次执行更新于 ${selectedWorkflow.lastRunRelative}。`}</p>
                       </div>
-                      <button class="spotlight-button" data-action="announce" data-message="运行态页面下一步再设计。">打开运行</button>
+                      <button class="spotlight-button" data-action="open-run" data-workflow-id="${selectedWorkflow.id}" data-run-id="${selectedWorkflow.latestRunId}">打开运行</button>
                     </div>
                     <div class="meta-footnote">这一页只负责快速选择与分发动作；真正的节点阅读与 Markdown 编辑已经切到详情页承载。</div>
                   </section>
@@ -697,8 +746,203 @@ function renderDetailPage(workflowId) {
   `);
 }
 
+function renderRunEdges(workflow, run) {
+  const nodeMap = new Map(workflow.graph.nodes.map((node) => [node.key, node]));
+  return workflow.graph.edges
+    .map(([fromKey, toKey], index) => {
+      const from = nodeMap.get(fromKey);
+      const to = nodeMap.get(toKey);
+      const sides = getDetailAnchorSides(from, to);
+      const start = getDetailAnchor(from, sides.source);
+      const end = getDetailAnchor(to, sides.target);
+      const points = buildStepPoints(start, end, sides.source);
+      const toRunNode = getRunNode(run, toKey);
+      const edgeStatus = toRunNode?.status ?? "waiting";
+      return `<path id="run-edge-${index}" d="${roundedPath(points)}" class="detail-edge run-edge run-edge-${edgeStatus}" />`;
+    })
+    .join("");
+}
+
+function renderRunPage(workflowId, runId = "") {
+  const workflow = getRowAlignedWorkflow(getWorkflowById(workflowId));
+  const runs = getRunsByWorkflowId(workflow.id);
+  const run = getRunById(workflow.id, runId || state.selectedRunId || workflow.latestRunId);
+
+  if (!run) {
+    state.selectedWorkflowId = workflow.id;
+    document.title = `mdflow · ${workflow.name} 运行`;
+    renderShell(`
+      <div class="empty-preview">
+        <div class="section-kicker">运行记录</div>
+        <h2>${escapeHtml(workflow.name)} 暂无运行记录</h2>
+        <p>后续接入真实运行能力后，这里会显示运行历史、节点状态和日志。</p>
+        <button class="toolbar-button toolbar-button-primary" data-action="open-detail" data-workflow-id="${workflow.id}">返回详情</button>
+      </div>
+    `);
+    return;
+  }
+
+  const selectedNode = getNodeByKey(workflow, state.selectedNodeKey || run.selectedNodeKey);
+  const selectedRunNode = getRunNode(run, selectedNode.key);
+  const zoom = zoomLevels[state.zoomIndex];
+
+  state.selectedWorkflowId = workflow.id;
+  state.selectedRunId = run.id;
+  state.selectedNodeKey = selectedRunNode ? selectedNode.key : run.selectedNodeKey;
+  state.notice = `正在查看运行记录 ${run.id}，点击节点可切换右侧日志。`;
+  document.title = `mdflow · ${run.id}`;
+
+  renderShell(`
+    <div class="detail-frame run-frame">
+      <aside class="detail-rail run-rail ${state.runRailExpanded ? "expanded" : "collapsed"}">
+        <button class="rail-toggle" data-action="toggle-run-rail" aria-label="${state.runRailExpanded ? "收起运行历史" : "展开运行历史"}">${state.runRailExpanded ? "‹" : "»"}</button>
+        <div class="detail-rail-icons"><span>●</span><span>↻</span><span>▣</span></div>
+        ${
+          state.runRailExpanded
+            ? `
+              <div class="detail-rail-panel">
+                <div class="section-kicker">运行历史</div>
+                <h2>${escapeHtml(workflow.name)}</h2>
+                <div class="run-history-list">
+                  ${runs
+                    .map(
+                      (item) => `
+                        <button class="run-history-item ${item.id === run.id ? "selected" : ""}" data-action="select-run" data-run-id="${item.id}">
+                          <span class="run-status-dot run-status-${item.status}"></span>
+                          <span>
+                            <strong>${escapeHtml(item.id)}</strong>
+                            <em>${escapeHtml(item.trigger)} · ${escapeHtml(item.duration)}</em>
+                          </span>
+                        </button>
+                      `
+                    )
+                    .join("")}
+                </div>
+              </div>
+            `
+            : ""
+        }
+      </aside>
+      <div class="detail-main">
+        <header class="detail-topbar run-topbar">
+          <div class="detail-topbar-copy">
+            <button class="detail-back-link" data-action="open-detail" data-workflow-id="${workflow.id}">‹ 返回工作流详情</button>
+            <div class="detail-title-row">
+              <h1>${escapeHtml(run.id)}</h1>
+              <span class="status-pill status-${run.status}">${runStatusLabel[run.status]}</span>
+            </div>
+            <div class="detail-topbar-meta">${escapeHtml(workflow.name)}　${escapeHtml(run.trigger)}　由 ${escapeHtml(run.actor)} 触发　${escapeHtml(run.startedAt)}</div>
+          </div>
+          <div class="detail-topbar-actions">
+            <button class="toolbar-button" data-action="announce" data-message="取消运行动作已预留。">取消运行</button>
+            <button class="toolbar-button" data-action="retry-failed">重跑失败节点</button>
+            <button class="toolbar-button toolbar-button-primary" data-action="retry-run">重跑全部</button>
+          </div>
+        </header>
+        <div class="run-summary-strip">
+          <div><span>总节点</span><strong>${run.metrics.total}</strong></div>
+          <div><span>已完成</span><strong>${run.metrics.success}</strong></div>
+          <div><span>运行中</span><strong>${run.metrics.running}</strong></div>
+          <div><span>失败</span><strong>${run.metrics.failed}</strong></div>
+          <div><span>等待</span><strong>${run.metrics.waiting}</strong></div>
+          <p>${escapeHtml(run.summary)}</p>
+        </div>
+        <div class="detail-content run-content">
+          <section class="canvas-surface">
+            <div class="canvas-topbar">
+              <div class="canvas-zoom-group">
+                <button class="zoom-button" data-action="zoom-out">−</button>
+                <button class="zoom-button zoom-readout" data-action="zoom-reset">${Math.round(zoom * 100)}%</button>
+                <button class="zoom-button" data-action="zoom-in">＋</button>
+                <button class="zoom-button" data-action="zoom-reset">适配</button>
+              </div>
+              <div class="canvas-legend">
+                <span><i class="legend-dot legend-running"></i>运行中</span>
+                <span><i class="legend-dot legend-success"></i>已完成</span>
+                <span><i class="legend-dot legend-failed"></i>失败</span>
+                <span><i class="legend-dot legend-idle"></i>等待中</span>
+              </div>
+            </div>
+            <div class="canvas-board-shell run-board-shell">
+              <div class="canvas-board" style="transform: scale(${zoom});">
+                <svg viewBox="0 0 720 690" class="detail-canvas-svg" aria-hidden="true">${renderRunEdges(workflow, run)}</svg>
+                ${workflow.graph.nodes
+                  .map((node) => {
+                    const runNode = getRunNode(run, node.key);
+                    const nodeStatus = runNode?.status ?? "waiting";
+                    return `
+                      <button class="canvas-node run-node run-node-${nodeStatus} ${node.key === selectedNode.key ? "selected" : ""}" data-action="select-run-node" data-node-key="${node.key}" style="left:${node.x}px; top:${node.y}px;">
+                        ${renderCanvasNodeHandles(getDetailNodePorts(workflow, node.key))}
+                        <div class="canvas-node-head">
+                          <span class="canvas-node-badge">${escapeHtml(node.badge)}</span>
+                          <span class="canvas-node-type">${escapeHtml(runStatusLabel[nodeStatus])}</span>
+                        </div>
+                        <strong>${escapeHtml(node.label)}</strong>
+                        <div class="run-node-meta">
+                          <span>${escapeHtml(runNode?.duration ?? "等待中")}</span>
+                          <span>重试 ${runNode?.retries ?? 0}</span>
+                        </div>
+                        <div class="run-node-progress"><i style="width:${runNode?.progress ?? 0}%"></i></div>
+                        <div class="canvas-node-output"><span>产物</span><em>${escapeHtml(runNode?.output ?? node.outputHint)}</em></div>
+                      </button>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            </div>
+            <div class="canvas-notice">${escapeHtml(state.notice)}</div>
+          </section>
+          <aside class="editor-dock run-dock">
+            <div class="editor-dock-head">
+              <div>
+                <div class="editor-title-row">
+                  <h3>${escapeHtml(selectedNode.label)}</h3>
+                  <span class="status-pill status-${selectedRunNode?.status ?? "idle"}">${runStatusLabel[selectedRunNode?.status ?? "idle"]}</span>
+                </div>
+                <div class="editor-path">${escapeHtml(selectedRunNode?.summary ?? "等待节点开始执行。")}</div>
+              </div>
+              <div class="editor-head-actions">
+                <button class="icon-button" data-action="announce" data-message="复制日志入口已预留。">⧉</button>
+                <button class="icon-button" data-action="announce" data-message="右侧运行详情保持打开。">×</button>
+              </div>
+            </div>
+            <div class="run-node-detail-grid">
+              <div><span>开始</span><strong>${escapeHtml(selectedRunNode?.startedAt ?? "未开始")}</strong></div>
+              <div><span>结束</span><strong>${escapeHtml(selectedRunNode?.finishedAt ?? "未完成")}</strong></div>
+              <div><span>耗时</span><strong>${escapeHtml(selectedRunNode?.duration ?? "等待中")}</strong></div>
+              <div><span>进度</span><strong>${selectedRunNode?.progress ?? 0}%</strong></div>
+            </div>
+            ${
+              selectedRunNode?.error
+                ? `<div class="run-error-box"><strong>错误</strong><p>${escapeHtml(selectedRunNode.error)}</p></div>`
+                : ""
+            }
+            <div class="editor-toolbar">
+              <button class="toolbar-button toolbar-button-primary" data-action="retry-node">重试此节点</button>
+              <button class="toolbar-button" data-action="retry-downstream">从此节点继续</button>
+              <button class="toolbar-button" data-action="announce" data-message="产物下载入口已预留。">下载产物</button>
+            </div>
+            <div class="run-artifacts">
+              <div class="section-kicker">产物</div>
+              ${(selectedRunNode?.artifacts ?? []).length ? selectedRunNode.artifacts.map((artifact) => `<span>${escapeHtml(artifact)}</span>`).join("") : "<p>暂无产物</p>"}
+            </div>
+            <div class="run-log-panel">
+              <div class="section-kicker">节点日志</div>
+              <pre>${escapeHtml((selectedRunNode?.logs ?? ["等待节点开始执行。"]).join("\n"))}</pre>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
 function render() {
   const route = parseRoute();
+  if (route.page === "run") {
+    renderRunPage(route.workflowId, route.runId);
+    return;
+  }
   if (route.page === "detail") {
     renderDetailPage(route.workflowId);
     return;
@@ -725,6 +969,11 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "open-run") {
+    goToWorkflowRun(target.dataset.workflowId, target.dataset.runId);
+    return;
+  }
+
   if (action === "go-overview") {
     goToOverview();
     return;
@@ -736,9 +985,35 @@ app.addEventListener("click", (event) => {
     return;
   }
 
+  if (action === "toggle-run-rail") {
+    state.runRailExpanded = !state.runRailExpanded;
+    render();
+    return;
+  }
+
+  if (action === "select-run") {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const run = getRunById(workflow.id, target.dataset.runId);
+    state.selectedRunId = run.id;
+    state.selectedNodeKey = run.selectedNodeKey;
+    state.notice = `已切换到运行记录：${run.id}`;
+    pushRoute("run", workflow.id, run.id);
+    render();
+    return;
+  }
+
   if (action === "select-node") {
     state.selectedNodeKey = target.dataset.nodeKey;
     state.notice = `已切换到节点：${getNodeByKey(getWorkflowById(state.selectedWorkflowId), state.selectedNodeKey).label}`;
+    render();
+    return;
+  }
+
+  if (action === "select-run-node") {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const node = getNodeByKey(workflow, target.dataset.nodeKey);
+    state.selectedNodeKey = node.key;
+    state.notice = `已打开 ${node.label} 的运行日志。`;
     render();
     return;
   }
@@ -797,6 +1072,34 @@ app.addEventListener("click", (event) => {
     const workflow = getWorkflowById(state.selectedWorkflowId);
     const node = getNodeByKey(workflow, state.selectedNodeKey);
     state.notice = `已将节点 ${node.label} 加入重试队列。`;
+    render();
+    return;
+  }
+
+  if (action === "retry-node") {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const node = getNodeByKey(workflow, state.selectedNodeKey);
+    state.notice = `已提交节点重试：${node.label}`;
+    render();
+    return;
+  }
+
+  if (action === "retry-downstream") {
+    const workflow = getWorkflowById(state.selectedWorkflowId);
+    const node = getNodeByKey(workflow, state.selectedNodeKey);
+    state.notice = `已从节点 ${node.label} 继续向下游重跑。`;
+    render();
+    return;
+  }
+
+  if (action === "retry-run") {
+    state.notice = "已提交整次工作流重跑。";
+    render();
+    return;
+  }
+
+  if (action === "retry-failed") {
+    state.notice = "已提交失败节点重跑。";
     render();
     return;
   }

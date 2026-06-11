@@ -574,3 +574,141 @@ jq '.status' report.json
     }
   }
 ];
+
+export const workflowRuns = {
+  summer_feature: [
+    {
+      id: "run-2026-06-10-031",
+      status: "running",
+      trigger: "手动运行",
+      actor: "张同学",
+      startedAt: "今天 14:44:09",
+      duration: "12 分 18 秒",
+      summary: "正在从数据校验继续执行，前置题面、样例和标准程序已经完成。",
+      selectedNodeKey: "data_validator",
+      metrics: {
+        total: 6,
+        success: 3,
+        running: 1,
+        failed: 0,
+        waiting: 2
+      },
+      nodes: {
+        problem_statement: {
+          status: "success",
+          duration: "18 秒",
+          retries: 0,
+          progress: 100,
+          startedAt: "14:44:09",
+          finishedAt: "14:44:27",
+          summary: "题面 Markdown 已生成并写入产物。",
+          output: "problem.md",
+          artifacts: ["problem.md", "statement.preview.html"],
+          logs: [
+            "14:44:09 读取 workflows/summer/problem.md",
+            "14:44:15 生成题面结构与样例段落",
+            "14:44:27 写入 problem.md"
+          ]
+        },
+        sample_builder: {
+          status: "success",
+          duration: "42 秒",
+          retries: 0,
+          progress: 100,
+          startedAt: "14:44:28",
+          finishedAt: "14:45:10",
+          summary: "样例目录已生成，包含基础样例和边界样例。",
+          output: "samples/",
+          artifacts: ["samples/basic.in", "samples/basic.out", "samples/boundary.in"],
+          logs: [
+            "14:44:28 解析题面约束",
+            "14:44:39 生成 4 组基础样例",
+            "14:45:10 写入 samples/"
+          ]
+        },
+        standard_solution: {
+          status: "success",
+          duration: "1 分 06 秒",
+          retries: 1,
+          progress: 100,
+          startedAt: "14:45:12",
+          finishedAt: "14:46:18",
+          summary: "标准程序已通过样例回放。",
+          output: "solution.py",
+          artifacts: ["solution.py", "solution.run.log"],
+          logs: [
+            "14:45:12 启动 Python 运行环境",
+            "14:45:33 第一次格式化检查失败，自动重试",
+            "14:46:18 样例回放通过"
+          ]
+        },
+        data_validator: {
+          status: "running",
+          duration: "进行中 4 分 28 秒",
+          retries: 0,
+          progress: 68,
+          startedAt: "14:46:20",
+          finishedAt: "进行中",
+          summary: "正在执行随机数据与边界数据校验。",
+          output: "report.json",
+          artifacts: ["report.partial.json"],
+          logs: [
+            "14:46:20 加载 samples/ 和 solution.py",
+            "14:47:02 校验基础样例：通过",
+            "14:48:41 校验边界样例：通过",
+            "14:50:37 正在运行随机数据 68/100"
+          ]
+        },
+        result_aggregate: {
+          status: "waiting",
+          duration: "等待中",
+          retries: 0,
+          progress: 0,
+          startedAt: "未开始",
+          finishedAt: "未完成",
+          summary: "等待数据校验完成后开始汇总。",
+          output: "summary.md",
+          artifacts: [],
+          logs: ["等待上游节点：数据校验"]
+        },
+        release_ready: {
+          status: "waiting",
+          duration: "等待中",
+          retries: 0,
+          progress: 0,
+          startedAt: "未开始",
+          finishedAt: "未完成",
+          summary: "等待结果汇总后生成发布清单。",
+          output: "release/",
+          artifacts: [],
+          logs: ["等待上游节点：结果汇总"]
+        }
+      }
+    },
+    {
+      id: "run-2026-06-10-029",
+      status: "failed",
+      trigger: "定时运行",
+      actor: "系统",
+      startedAt: "今天 13:50:11",
+      duration: "8 分 03 秒",
+      summary: "数据校验在随机用例 73 处失败，等待人工重试。",
+      selectedNodeKey: "data_validator",
+      metrics: {
+        total: 6,
+        success: 3,
+        running: 0,
+        failed: 1,
+        waiting: 2
+      },
+      nodes: {
+        problem_statement: { status: "success", duration: "17 秒", retries: 0, progress: 100, startedAt: "13:50:11", finishedAt: "13:50:28", summary: "题面已生成。", output: "problem.md", artifacts: ["problem.md"], logs: ["13:50:28 写入 problem.md"] },
+        sample_builder: { status: "success", duration: "39 秒", retries: 0, progress: 100, startedAt: "13:50:29", finishedAt: "13:51:08", summary: "样例已生成。", output: "samples/", artifacts: ["samples/"], logs: ["13:51:08 写入 samples/"] },
+        standard_solution: { status: "success", duration: "51 秒", retries: 0, progress: 100, startedAt: "13:51:10", finishedAt: "13:52:01", summary: "标准程序通过。", output: "solution.py", artifacts: ["solution.py"], logs: ["13:52:01 样例回放通过"] },
+        data_validator: { status: "failed", duration: "5 分 19 秒", retries: 2, progress: 73, startedAt: "13:52:04", finishedAt: "13:57:23", summary: "随机用例 73 输出格式不一致。", output: "report.json", artifacts: ["report.failed.json", "case-73.in", "case-73.out"], logs: ["13:55:41 随机数据 72/100 通过", "13:57:23 AssertionError: expected 6 decimals, got 5"], error: "AssertionError: expected 6 decimals, got 5" },
+        result_aggregate: { status: "waiting", duration: "等待中", retries: 0, progress: 0, startedAt: "未开始", finishedAt: "未完成", summary: "上游失败，未开始。", output: "summary.md", artifacts: [], logs: ["等待上游节点：数据校验"] },
+        release_ready: { status: "waiting", duration: "等待中", retries: 0, progress: 0, startedAt: "未开始", finishedAt: "未完成", summary: "上游失败，未开始。", output: "release/", artifacts: [], logs: ["等待上游节点：结果汇总"] }
+      }
+    }
+  ]
+};
