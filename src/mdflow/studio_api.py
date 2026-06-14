@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 import threading
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse, parse_qs
 
 from mdflow.config import find_project_root, load_project_config
 from mdflow.errors import CliUsageError, ValidationError
@@ -54,6 +55,17 @@ def make_handler(studio_state: StudioState):
                 if len(path) == 4 and path[:2] == ["api", "runs"]:
                     workflow_id, run_id = path[2], path[3]
                     self._send_json(build_run_payload(studio_state.config, workflow_id, run_id))
+                    return
+                if len(path) >= 6 and path[:2] == ["api", "runs"] and path[4] == "artifacts":
+                    workflow_id, run_id = path[2], path[3]
+                    artifact_name = "/".join(path[5:])
+                    self._send_file(studio_state.config, workflow_id, run_id, artifact_name)
+                    return
+                if len(path) == 7 and path[:2] == ["api", "runs"] and path[4] == "nodes" and path[6] == "logs":
+                    workflow_id, run_id, node_id = path[2], path[3], path[5]
+                    query = parse_qs(urlparse(self.path).query)
+                    stream = str(query.get("stream", ["combined"])[0])
+                    self._send_json(build_node_log_payload(studio_state.config, workflow_id, run_id, node_id, stream))
                     return
                 self._send_json({"error": "not_found"}, status=404)
             except Exception as exc:  # noqa: BLE001 - API must return structured errors.
@@ -124,6 +136,23 @@ def make_handler(studio_state: StudioState):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
             self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+        def _send_file(self, config: ProjectConfig, workflow_id: str, run_id: str, artifact_name: str) -> None:
+            artifact_path = resolve_artifact_path(config, workflow_id, run_id, artifact_name)
+            content_type = mimetypes.guess_type(artifact_path.name)[0] or "application/octet-stream"
+            encoded_name = quote(artifact_path.name)
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(artifact_path.stat().st_size))
+            self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{encoded_name}")
+            self.end_headers()
+            with artifact_path.open("rb") as file:
+                while True:
+                    chunk = file.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
 
     return StudioHandler
 
@@ -320,7 +349,7 @@ def build_run_node_payload(run_dir: Path, node: NodeSpec, state: dict[str, objec
     else:
         status = "waiting"
     stdout, stderr = latest_trace_texts(run_dir, node.id)
-    artifacts = [name for name, rel in state.get("outputs", {}).items() if node.produces and name == node.produces]
+    artifacts = build_artifact_payloads(run_dir, state, node)
     error = state.get("last_failure", {}).get("message") if failed_node == node.id and isinstance(state.get("last_failure"), dict) else None
     return {
         "status": status,
@@ -332,8 +361,54 @@ def build_run_node_payload(run_dir: Path, node: NodeSpec, state: dict[str, objec
         "summary": node_summary(status, node),
         "output": node.produces or "无产物",
         "artifacts": artifacts,
-        "logs": split_logs(stdout, stderr),
+        "logs": summarize_logs(stdout, stderr),
+        "logUrl": f"/api/runs/{quote(str(state['workflow_id']))}/{quote(str(state['run_id']))}/nodes/{quote(node.id)}/logs",
         "error": error,
+    }
+
+
+def build_artifact_payloads(run_dir: Path, state: dict[str, object], node: NodeSpec) -> list[dict[str, object]]:
+    outputs = state.get("outputs", {})
+    if not isinstance(outputs, dict) or not node.produces:
+        return []
+    artifact_rel = outputs.get(node.produces)
+    if not isinstance(artifact_rel, str):
+        return []
+    artifact_path = safe_run_child(run_dir, artifact_rel)
+    if not artifact_path.is_file():
+        return []
+    workflow_id = str(state["workflow_id"])
+    run_id = str(state["run_id"])
+    artifact_name = str(node.produces)
+    return [
+        {
+            "name": artifact_name,
+            "size": artifact_path.stat().st_size,
+            "url": f"/api/runs/{quote(workflow_id)}/{quote(run_id)}/artifacts/{quote(artifact_name, safe='')}",
+        }
+    ]
+
+
+def build_node_log_payload(config: ProjectConfig, workflow_id: str, run_id: str, node_id: str, stream: str) -> dict[str, object]:
+    run_dir = get_run_dir(config, workflow_id, run_id)
+    stdout, stderr = latest_trace_texts(run_dir, node_id)
+    if stream not in {"combined", "stdout", "stderr"}:
+        raise CliUsageError(f"unsupported log stream: {stream}")
+    if stream == "stdout":
+        text = stdout
+    elif stream == "stderr":
+        text = stderr
+    else:
+        text = combine_logs(stdout, stderr)
+    return {
+        "workflowId": workflow_id,
+        "runId": run_id,
+        "nodeId": node_id,
+        "stream": stream,
+        "text": text,
+        "lines": text.splitlines() if text else [],
+        "stdoutBytes": len(stdout.encode("utf-8")),
+        "stderrBytes": len(stderr.encode("utf-8")),
     }
 
 
@@ -354,13 +429,45 @@ def latest_trace_texts(run_dir: Path, node_id: str) -> tuple[str, str]:
     return stdout, stderr
 
 
-def split_logs(stdout: str, stderr: str) -> list[str]:
+def summarize_logs(stdout: str, stderr: str) -> list[str]:
     lines = []
     if stdout.strip():
         lines.extend(stdout.strip().splitlines()[-8:])
     if stderr.strip():
         lines.extend(stderr.strip().splitlines()[-8:])
     return lines or ["暂无节点日志。"]
+
+
+def combine_logs(stdout: str, stderr: str) -> str:
+    parts = []
+    if stdout:
+        parts.append(stdout.rstrip())
+    if stderr:
+        parts.append("[stderr]\n" + stderr.rstrip())
+    return "\n".join(part for part in parts if part).strip()
+
+
+def resolve_artifact_path(config: ProjectConfig, workflow_id: str, run_id: str, artifact_name: str) -> Path:
+    run_dir = get_run_dir(config, workflow_id, run_id)
+    state = read_json(run_dir / "state.json")
+    outputs = state.get("outputs", {})
+    if not isinstance(outputs, dict) or artifact_name not in outputs:
+        raise CliUsageError(f"artifact not found: {artifact_name}")
+    rel_path = outputs[artifact_name]
+    if not isinstance(rel_path, str):
+        raise CliUsageError(f"artifact path is invalid: {artifact_name}")
+    artifact_path = safe_run_child(run_dir, rel_path)
+    if not artifact_path.is_file():
+        raise CliUsageError(f"artifact file not found: {artifact_name}")
+    return artifact_path
+
+
+def safe_run_child(run_dir: Path, rel_path: str) -> Path:
+    child = (run_dir / rel_path).resolve()
+    run_root = run_dir.resolve()
+    if child != run_root and run_root not in child.parents:
+        raise CliUsageError(f"path escapes run directory: {rel_path}")
+    return child
 
 
 def start_run_thread(studio_state: StudioState, workflow_id: str, input_path: str, run_id: str) -> None:

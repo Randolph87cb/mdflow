@@ -32,6 +32,7 @@ const state = {
   apiSource: "static",
   apiError: "",
   isRefreshing: false,
+  runLogCache: {},
   notice: "已对齐设计稿结构：中间画布为主，右侧固定编辑。"
 };
 
@@ -81,6 +82,44 @@ function getRunById(workflowId, runId) {
 
 function getRunNode(run, nodeKey) {
   return run?.nodes[nodeKey] ?? null;
+}
+
+function apiUrl(path) {
+  if (!path) {
+    return "";
+  }
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function runLogCacheKey(workflowId, runId, nodeKey) {
+  return `${workflowId}/${runId}/${nodeKey}`;
+}
+
+function normalizeArtifact(artifact) {
+  if (typeof artifact === "string") {
+    return { name: artifact, url: "", size: null };
+  }
+  return {
+    name: artifact?.name ?? "未命名产物",
+    url: artifact?.url ?? "",
+    size: artifact?.size ?? null
+  };
+}
+
+function formatBytes(value) {
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 async function refreshRealData({ silent = false } = {}) {
@@ -182,6 +221,57 @@ async function startRunRerun(fromNode = "") {
     state.notice = `真实重跑提交失败：${error instanceof Error ? error.message : String(error)}`;
     render();
   }
+}
+
+async function loadRunNodeLogs(workflowId, runId, nodeKey, logUrl = "") {
+  if (state.apiSource !== "real" || !workflowId || !runId || !nodeKey) {
+    return;
+  }
+  const cacheKey = runLogCacheKey(workflowId, runId, nodeKey);
+  if (["failed", "loaded", "loading"].includes(state.runLogCache[cacheKey]?.status)) {
+    return;
+  }
+  state.runLogCache[cacheKey] = { status: "loading", lines: [] };
+  try {
+    const url = apiUrl(logUrl || `/api/runs/${encodeURIComponent(workflowId)}/${encodeURIComponent(runId)}/nodes/${encodeURIComponent(nodeKey)}/logs`);
+    const response = await fetch(url);
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.message || payload.error || `HTTP ${response.status}`);
+    }
+    state.runLogCache[cacheKey] = {
+      status: "loaded",
+      lines: payload.lines?.length ? payload.lines : ["暂无节点日志。"]
+    };
+    const route = parseRoute();
+    if (route.page === "run" && state.selectedWorkflowId === workflowId && state.selectedRunId === runId && state.selectedNodeKey === nodeKey) {
+      render();
+    }
+  } catch (error) {
+    state.runLogCache[cacheKey] = {
+      status: "failed",
+      lines: [`日志加载失败：${error instanceof Error ? error.message : String(error)}`]
+    };
+    render();
+  }
+}
+
+function downloadArtifact(artifact) {
+  const normalized = normalizeArtifact(artifact);
+  if (!normalized.url) {
+    state.notice = "这个产物没有可下载地址。";
+    render();
+    return;
+  }
+  const link = document.createElement("a");
+  link.href = apiUrl(normalized.url);
+  link.download = normalized.name;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  state.notice = `开始下载产物：${normalized.name}`;
+  render();
 }
 
 function scheduleRunRefresh() {
@@ -646,6 +736,24 @@ function renderMarkdownPreview(markdown) {
   return blocks.join("");
 }
 
+function renderArtifactList(artifacts) {
+  if (!artifacts.length) {
+    return "<p>暂无产物</p>";
+  }
+  return artifacts
+    .map((artifact, index) => {
+      const normalized = normalizeArtifact(artifact);
+      const sizeLabel = normalized.size ? `<small>${formatBytes(normalized.size)}</small>` : "";
+      return `
+        <button class="artifact-chip" data-action="download-artifact" data-artifact-index="${index}">
+          <span>${escapeHtml(normalized.name)}</span>
+          ${sizeLabel}
+        </button>
+      `;
+    })
+    .join("");
+}
+
 function renderShell(content) {
   app.innerHTML = `
     <div class="shell">
@@ -1003,6 +1111,17 @@ function renderRunPage(workflowId, runId = "") {
 
   const selectedNode = getNodeByKey(workflow, state.selectedNodeKey || run.selectedNodeKey);
   const selectedRunNode = getRunNode(run, selectedNode.key);
+  const selectedArtifacts = selectedRunNode?.artifacts ?? [];
+  const logCache = state.runLogCache[runLogCacheKey(workflow.id, run.id, selectedNode.key)];
+  const selectedLogs = logCache?.lines?.length ? logCache.lines : selectedRunNode?.logs ?? ["等待节点开始执行。"];
+  const logStatusLabel =
+    logCache?.status === "loaded"
+      ? `完整日志 · ${selectedLogs.length} 行`
+      : logCache?.status === "loading"
+        ? "正在加载完整日志..."
+        : logCache?.status === "failed"
+          ? "完整日志加载失败"
+          : "日志摘要";
   const zoom = zoomLevels[state.zoomIndex];
   const previousRunId = state.selectedRunId;
 
@@ -1142,21 +1261,25 @@ function renderRunPage(workflowId, runId = "") {
             <div class="editor-toolbar">
               <button class="toolbar-button toolbar-button-primary" data-action="retry-node">重试此节点</button>
               <button class="toolbar-button" data-action="retry-downstream">从此节点继续</button>
-              <button class="toolbar-button" data-action="announce" data-message="产物下载入口已预留。">下载产物</button>
+              <button class="toolbar-button" data-action="download-selected-artifact">下载产物</button>
             </div>
             <div class="run-artifacts">
               <div class="section-kicker">产物</div>
-              ${(selectedRunNode?.artifacts ?? []).length ? selectedRunNode.artifacts.map((artifact) => `<span>${escapeHtml(artifact)}</span>`).join("") : "<p>暂无产物</p>"}
+              ${renderArtifactList(selectedArtifacts)}
             </div>
             <div class="run-log-panel">
-              <div class="section-kicker">节点日志</div>
-              <pre>${escapeHtml((selectedRunNode?.logs ?? ["等待节点开始执行。"]).join("\n"))}</pre>
+              <div class="run-log-head">
+                <div class="section-kicker">节点日志</div>
+                <span>${escapeHtml(logStatusLabel)}</span>
+              </div>
+              <pre>${escapeHtml(selectedLogs.join("\n"))}</pre>
             </div>
           </aside>
         </div>
       </div>
     </div>
   `);
+  loadRunNodeLogs(workflow.id, run.id, selectedNode.key, selectedRunNode?.logUrl);
 }
 
 function render() {
@@ -1348,6 +1471,33 @@ app.addEventListener("click", (event) => {
     }
     state.notice = "已提交失败节点重跑。";
     render();
+    return;
+  }
+
+  if (action === "download-selected-artifact") {
+    const run = getRunById(state.selectedWorkflowId, state.selectedRunId);
+    const runNode = getRunNode(run, state.selectedNodeKey);
+    const artifacts = runNode?.artifacts ?? [];
+    if (!artifacts.length) {
+      state.notice = "当前节点没有可下载产物。";
+      render();
+      return;
+    }
+    downloadArtifact(artifacts[0]);
+    return;
+  }
+
+  if (action === "download-artifact") {
+    const run = getRunById(state.selectedWorkflowId, state.selectedRunId);
+    const runNode = getRunNode(run, state.selectedNodeKey);
+    const artifacts = runNode?.artifacts ?? [];
+    const artifact = artifacts[Number(target.dataset.artifactIndex ?? 0)];
+    if (!artifact) {
+      state.notice = "产物不存在或运行记录已刷新。";
+      render();
+      return;
+    }
+    downloadArtifact(artifact);
     return;
   }
 

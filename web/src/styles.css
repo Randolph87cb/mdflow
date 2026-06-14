@@ -1424,12 +1424,41 @@ textarea:focus-visible {
   flex: 0 0 100%;
 }
 
-.run-artifacts span {
+.run-artifacts > span {
   padding: 8px 10px;
   border-radius: 12px;
   background: rgba(232, 238, 244, 0.92);
   color: #4f6b80;
   font-size: 0.82rem;
+}
+
+.artifact-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(232, 238, 244, 0.92);
+  color: #4f6b80;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.artifact-chip:hover {
+  background: rgba(31, 125, 151, 0.14);
+  color: #1f7d97;
+  transform: translateY(-1px);
+}
+
+.artifact-chip small {
+  color: #7d93a3;
+  font-size: 0.72rem;
 }
 
 .run-artifacts p {
@@ -1443,6 +1472,19 @@ textarea:focus-visible {
   flex: 1;
   flex-direction: column;
   gap: 10px;
+}
+
+.run-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.run-log-head span {
+  color: #6a8394;
+  font-size: 0.78rem;
+  white-space: nowrap;
 }
 
 .run-log-panel pre {
