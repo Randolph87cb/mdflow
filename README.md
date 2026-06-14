@@ -53,6 +53,26 @@ python -m mdflow.cli run problem_gen --input workflows/problem_gen/inputs/defaul
 
 前端默认会尝试连接本地 Studio API；连接成功后页面会显示“真实数据”，并从 `workflows/` 与 `runs/` 读取工作流和运行记录。
 
+一键启动：
+
+```powershell
+.\start-mdflow.bat
+```
+
+或直接运行 PowerShell 脚本：
+
+```powershell
+.\scripts\start-mdflow.ps1
+```
+
+脚本会启动 Studio API 和前端，并自动打开 `http://127.0.0.1:4176/`。如果要重启已占用端口上的旧进程：
+
+```powershell
+.\scripts\start-mdflow.ps1 -ForceRestart
+```
+
+手动启动方式：
+
 ```powershell
 $env:PYTHONPATH = "src"
 python -m mdflow.studio_api

@@ -12,4 +12,5 @@ runs/*
 web/node_modules/
 web/dist/
 .playwright-mcp/
+.mdflow-studio/
 *.egg-info/
